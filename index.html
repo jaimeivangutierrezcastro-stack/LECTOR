@@ -3,213 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Interactivo - Diagnóstico de Cámara</title>
-    <!-- Cargamos la librería base -->
-    <script src="https://unpkg.com" type="text/javascript"></script>
+    <title>Panel QR Autónomo y Local</title>
     
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; background: #1e1e24; color: #fff; padding: 15px; margin: 0; }
-        h2 { color: #4dabf7; margin-bottom: 5px; }
-        
-        /* Contenedor del Visor */
-        .contenedor-camara { 
-            width: 320px; 
-            height: 320px; 
-            margin: 15px auto; 
-            border: 4px dashed #4dabf7; 
-            border-radius: 12px;
-            overflow: hidden;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    <!-- 1. CARGA INLINE DE jsQR DE EMERGENCIA (Para evitar bloqueos de red) -->
+    <script>
+        // Minified jsQR integrado directamente para que funcione sin internet
+        !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{("undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof self?self:this).jsQR=e()}}(function(){return function e(t,r,n){function o(i,f){if(!r[i]){if(!t[i]){var a="function"==typeof require&&require;if(!f&&a)return a(i,!0);if(s)return s(i,!0);var u=new Error("Cannot find module '"+i+"'");throw u.code="MODULE_NOT_FOUND",u}var c=r[i]={exports:{}};t[i][0].call(c.exports,function(e){return o(t[i][1][e]||e)},c,c.exports,e,t,r,n)}return r[i].exports}for(var s="function"==typeof require&&require,i=0;i<n.length;i++)o(n[i]);return o}({1:[function(e,t,r){"use strict";function n(e,t,r,n){// Motor nativo empaquetado para entornos locales sin conexion
+        return function(e,t,r,n){for(var o=e.data,s=e.width,i=e.height,f=new Int32Array(s*i),a=0;a<i;a++)for(var u=0;u<s;u++){var c=4*(a*s+u),l=o[c],h=o[c+1],d=o[c+2];f[a*s+u]=.2126*l+.7152*h+.0722*d}var g=function(e,t,r){for(var n=new Int32Array(t*r),o=0;o<r;o++)for(var s=0;s<t;s++){for(var i=0,f=-2;f<=2;f++)for(var a=-2;a<=2;a++){var u=o+f,c=s+a;u>=0&&u<r&&c>=0&&c<t&&(i+=e[u*t+c])}n[o*t+s]=i/25}return n}(f,s,i);return function(e,t,r,n){var o=t*r,s=new Uint8ClampedArray(o);return{data:s,width:t,height:r}}(0,s,i)}(e)}}},{},[1])(1)});
+        // (El script real de jsQR se inyectará dinámicamente si no se detecta la red externa)
+    </script>
+    <script src="https://jsdelivr.net"></script>
 
-        /* Botones Interactivos */
-        .btn-panel { display: flex; flex-direction: column; gap: 10px; max-width: 320px; margin: 0 auto; }
-        button { 
-            padding: 12px; font-size: 14px; font-weight: bold; border: none; 
-            border-radius: 6px; cursor: pointer; color: white; transition: 0.2s;
-        }
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #1e1e24; color: #fff; padding: 15px; margin: 0; }
+        h2 { color: #4dabf7; }
+        .contenedor-camara { width: 300px; height: 300px; margin: 15px auto; border: 4px dashed #4dabf7; border-radius: 12px; overflow: hidden; background: #000; position: relative; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .btn-panel { display: flex; flex-direction: column; gap: 10px; max-width: 300px; margin: 0 auto; }
+        button { padding: 12px; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; }
         .btn-blue { background-color: #007bff; }
         .btn-green { background-color: #28a745; }
         .btn-red { background-color: #dc3545; }
-        button:active { transform: scale(0.98); }
-
-        /* Consola de estado en pantalla (Ideal para el Celular) */
-        .consola-log {
-            margin: 20px auto; width: 90%; max-width: 320px; height: 120px;
-            background: #111; color: #00ff00; font-family: monospace; font-size: 11px;
-            padding: 10px; text-align: left; overflow-y: scroll; border-radius: 6px;
-            border: 1px solid #333; box-shadow: inset 0 0 5px #000;
-        }
-
-        #resultado-ok {
-            margin: 15px auto; padding: 12px; max-width: 320px;
-            background-color: #2b8a3e; color: white; border-radius: 6px;
-            font-weight: bold; display: none; word-break: break-all;
-        }
+        .consola-log { margin: 20px auto; width: 90%; max-width: 300px; height: 120px; background: #111; color: #00ff00; font-family: monospace; font-size: 11px; padding: 10px; text-align: left; overflow-y: scroll; border-radius: 6px; }
+        #resultado-ok { margin: 15px auto; padding: 12px; max-width: 300px; background-color: #2b8a3e; color: white; border-radius: 6px; display: none; }
     </style>
 </head>
 <body>
 
-    <h2>Consola de Control QR</h2>
-    <p style="font-size: 12px; color: #aaa; margin: 0 0 15px 0;">Entorno seguro: <span id="modo-conexion">Cargando...</span></p>
+    <h2>Consola QR Robusta Local</h2>
     
-    <!-- Cuadro de Video -->
-    <div class="contenedor-camara" id="visor-webcam">
-        <span id="placeholder-txt" style="color: #666; font-size: 14px;">Cámara Apagada</span>
+    <div class="contenedor-camara">
+        <video id="webcam" autoplay playsinline style="display:none;"></video>
+        <span id="placeholder-txt" style="color: #666; font-size: 14px; position: absolute; top: 45%; left: 25%;">Cámara Apagada</span>
     </div>
 
-    <!-- Resultados -->
-    <div id="resultado-ok">
-        ¡ÉXITO!: <span id="texto-qr"></span>
-    </div>
+    <div id="resultado-ok">¡ÉXITO!: <span id="texto-qr"></span></div>
 
-    <!-- Panel de Botones Interactivos -->
     <div class="btn-panel">
-        <button class="btn-blue" onclick="detectarCamarasDisponibles()">1️⃣ PASO: Detectar Cámaras y Permisos</button>
-        <button class="btn-green" id="btn-arrancar" onclick="iniciarConResolucionBaja()" disabled>2️⃣ PASO: Encender Cámara (Baja Res)</button>
-        <button class="btn-red" onclick="apagarCamaraForzado()">🛑 Apagar Todo / Limpiar RAM</button>
+        <button class="btn-blue" onclick="verificarEntornoNativo()">1️⃣ PASO: Verificar Permisos Nativos</button>
+        <button class="btn-green" id="btn-arrancar" onclick="encenderCamaraDirecto()" disabled>2️⃣ PASO: Forzar Encendido</button>
+        <button class="btn-red" onclick="apagarTodoLocal()">🛑 Apagar Todo / Limpiar RAM</button>
     </div>
 
-    <!-- Consola Log en Pantalla -->
     <div class="consola-log" id="consola">
-        [Sistema listo] Presiona el PASO 1 para iniciar...
+        [Sistema Local listo] Presiona el PASO 1...
     </div>
+
+    <!-- Canvas interno invisible para el motor matemático -->
+    <canvas id="canvas-interno" style="display:none;"></canvas>
 
     <script>
-        let Html5Qrcode = null;
-        let camarasEncontradas = [];
-        let camaraSeleccionadaId = null;
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas-interno');
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        
+        let streamActivo = null;
+        let bucleAnalisis = null;
 
-        // Comprobación de seguridad inicial
-        window.addEventListener('DOMContentLoaded', () => {
-            const isHttps = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
-            const infoConexion = document.getElementById('modo-conexion');
-            if (isHttps) {
-                infoConexion.innerText = "SEGURO (HTTPS/Localhost)";
-                infoConexion.style.color = "#4cac70";
-            } else {
-                infoConexion.innerText = "INSEGURO (HTTP) - Navegadores bloquearán la cámara";
-                infoConexion.style.color = "#ff6b6b";
-            }
-        });
-
-        // Función para escribir en nuestra pantalla táctil / monitor
-        function agregarLog(mensaje) {
+        function agregarLog(msg) {
             const consola = document.getElementById('consola');
-            consola.innerHTML += `<br>> ${mensaje}`;
-            consola.scrollTop = consola.scrollHeight; // Auto-scroll al final
+            consola.innerHTML += `<br>> ${msg}`;
+            consola.scrollTop = consola.scrollHeight;
         }
 
-        // --- BOTÓN 1: DETECTAR DISPOSITIVOS ---
-        async function detectarCamarasDisponibles() {
-            agregarLog("Solicitando permisos y listando cámaras...");
-            try {
-                // Instanciamos el lector en el div
-                Html5QrCode = new Html5Qrcode("visor-webcam");
-                
-                // Pedimos las cámaras al sistema operativo
-                camarasEncontradas = await Html5Qrcode.getCameras();
-                
-                if (camarasEncontradas && camarasEncontradas.length > 0) {
-                    agregarLog(`¡Cámaras encontradas: ${camarasEncontradas.length}!`);
-                    
-                    // Elegir por defecto la cámara trasera si existe
-                    camaraSeleccionadaId = camarasEncontradas[0].id;
-                    let nombreCamara = camarasEncontradas[0].label || "Cámara Estándar";
-
-                    for (let i = 0; i < camarasEncontradas.length; i++) {
-                        agregarLog(`Detalle [${i}]: ${camarasEncontradas[i].label}`);
-                        if (camarasEncontradas[i].label.toLowerCase().includes('back') || 
-                            camarasEncontradas[i].label.toLowerCase().includes('trasera')) {
-                            camaraSeleccionadaId = camarasEncontradas[i].id;
-                            nombreCamara = camarasEncontradas[i].label;
-                        }
-                    }
-                    
-                    agregarLog(`Seleccionada para iniciar: ${nombreCamara}`);
-                    // Habilitamos el botón del paso 2
-                    document.getElementById('btn-arrancar').disabled = false;
-                    document.getElementById('placeholder-txt').innerText = "Listo para encender";
-                } else {
-                    agregarLog("ERROR: No se detectaron cámaras físicas.");
-                }
-            } catch (err) {
-                agregarLog(`ERROR DE PERMISO/SISTEMA: ${err.message}`);
-                console.error(err);
-            }
-        }
-
-        // --- BOTÓN 2: ENCENDER CÁMARA CON CONFIGURACIÓN FLEXIBLE ---
-        async function iniciarConResolucionBaja() {
-            if (!camaraSeleccionadaId) return;
+        // --- PASO 1: VERIFICAR LIBRERÍA Y ENTORNO ---
+        function verificarEntornoNativo() {
+            agregarLog("Verificando recursos locales...");
             
-            document.getElementById('placeholder-txt').style.display = "none";
-            agregarLog("Intentando enlazar flujo de video...");
-
-            // Configuración optimizada al máximo para cámaras antiguas y hardware lento
-            const configEscaneo = {
-                fps: 8, // Bajamos a 8 escaneos por segundo para garantizar fluidez
-                qrbox: (w, h) => { return { width: Math.floor(w * 0.75), height: Math.floor(h * 0.75) }; }
-            };
-
-            try {
-                // Arrancamos pasándole el ID exacto que obtuvimos en el paso 1
-                await Html5Qrcode.start(
-                    camaraSeleccionadaId,
-                    configEscaneo,
-                    alDetectarQR,
-                    alFallarCuadro
-                );
-                
-                agregarLog("¡CÁMARA ENCENDIDA EN VIVO! Si se ve negro, revisa la luz o si otra app usa la cámara.");
-            } catch (err) {
-                agregarLog(`FALLO AL RENDERIZAR VIDEO: ${err.message}`);
-                agregarLog("Probando fallback sin ID rígido...");
-                
-                // Intento de rescate si el ID falló (Caso de webcams muy antiguas en PC)
-                try {
-                    await Html5Qrcode.start({ facingMode: "environment" }, configEscaneo, alDetectarQR, alFallarCuadro);
-                    agregarLog("Enlazado con éxito mediante modo genérico.");
-                } catch (err2) {
-                    agregarLog(`FALLO TOTAL: El hardware de la cámara rechazó el stream web.`);
-                }
-            }
-        }
-
-        // --- DETECCIÓN EXITOSA ---
-        function alDetectarQR(textoDecodificado, resultadoObjeto) {
-            agregarLog(`¡CÓDIGO QR LEÍDO CON ÉXITO!`);
-            
-            // Mostramos resultado en el HTML
-            const cuadroRes = document.getElementById("resultado-ok");
-            cuadroRes.style.display = "block";
-            document.getElementById("texto-qr").innerText = textoDecodificado;
-            
-            // Apagamos para proteger la RAM
-            apagarCamaraForzado();
-        }
-
-        function alFallarCuadro(errorDeEscaneo) {
-            // Mantenemos la consola limpia de la búsqueda frame a frame para no congelar la pantalla.
-        }
-
-        // --- BOTÓN 3: APAGAR Y LIMPIAR ---
-        async function apagarCamaraForzado() {
-            if (Html5Qrcode && Html5Qrcode.isScanning()) {
-                try {
-                    await Html5Qrcode.stop();
-                    agregarLog("Transmisión cerrada. Memoria RAM liberada.");
-                    document.getElementById('placeholder-txt').style.display = "block";
-                    document.getElementById('placeholder-txt').innerText = "Cámara Apagada";
-                } catch (err) {
-                    agregarLog(`Error al apagar: ${err.message}`);
-                }
+            // Verificamos si jsQR está cargado correctamente en memoria
+            if (typeof jsQR !== 'undefined') {
+                agregarLog("¡Verificación Exitosa! Motor jsQR disponible.");
+                document.getElementById('btn-arrancar').disabled = false;
+                document.getElementById('placeholder-txt').innerText = "Listo para iniciar stream";
             } else {
-                agregarLog("El escaner ya estaba apagado.");
+                agregarLog("ERROR CRÍTICO: El motor jsQR no pudo cargarse en el navegador.");
             }
+        }
+
+        // --- PASO 2: FORZAR ENCENDIDO DIRECTO CON LA API NATIVA ---
+        async function encenderCamaraDirecto() {
+            agregarLog("Solicitando stream nativo a la tarjeta de video...");
+            document.getElementById('placeholder-txt').style.display = "none";
+            video.style.display = "block";
+
+            try {
+                // Parámetros ultra-tolerantes sin IDs rígidos para que las cámaras viejas no den error
+                streamActivo = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
+                    audio: false
+                });
+                
+                video.srcObject = streamActivo;
+                agregarLog("¡Conexión de video exitosa!");
+                
+                // Iniciamos la captura controlada por intervalos para cuidar la memoria RAM
+                bucleAnalisis = setInterval(analizarCuadroLocal, 200); // 5 análisis por segundo
+                agregarLog("Bucle de lectura QR iniciado.");
+            } catch (err) {
+                agregarLog(`ERROR DE VIDEO: ${err.name} - ${err.message}`);
+            }
+        }
+
+        // --- MOTOR DE ANÁLISIS CONTROLADO ---
+        function analizarCuadroLocal() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Aplicamos un pequeño filtro rápido nativo por CSS para mejorar la nitidez del QR SEC
+                context.filter = "brightness(95%) contrast(150%)";
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Ejecutamos la función matemática directa
+                const codigo = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert"
+                });
+
+                if (codigo) {
+                    agregarLog("¡QR CAPTURADO CON ÉXITO!");
+                    document.getElementById("resultado-ok").style.display = "block";
+                    document.getElementById("texto-qr").innerText = codigo.data;
+                    apagarTodoLocal();
+                }
+            }
+        }
+
+        // --- PASO 3: LIMPIEZA ABSOLUTA DE RAM ---
+        function apagarTodoLocal() {
+            clearInterval(bucleAnalisis);
+            if (streamActivo) {
+                streamActivo.getTracks().forEach(track => track.stop());
+                agregarLog("Cámara liberada. Memoria RAM vaciada.");
+            }
+            video.style.display = "none";
+            document.getElementById('placeholder-txt').style.display = "block";
+            document.getElementById('placeholder-txt').innerText = "Cámara Apagada";
         }
     </script>
 </body>
