@@ -66,7 +66,7 @@
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(650, audioCtx.currentTime); // Un tono ligeramente distinto para barras
+                oscillator.frequency.setValueAtTime(750, audioCtx.currentTime); // Un tono ligeramente distinto para barras
                 gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
                 oscillator.start();
                 oscillator.stop(audioCtx.currentTime + 0.12);
@@ -84,49 +84,64 @@
         }
 
         async function encenderLectorBarras() {
-            agregarLog("Activando cámara para códigos alargados...");
-            document.getElementById('placeholder-txt').style.display = "none";
-            videoElemento.style.display = "block";
+    agregarLog("Activando cámara para códigos alargados...");
+    document.getElementById('placeholder-txt').style.display = "none";
+    videoElemento.style.display = "block";
 
-            try {
-                codeReader = new ZXing.BrowserMultiFormatReader();
+    try {
+        // Instanciamos el lector base
+        codeReader = new ZXing.BrowserMultiFormatReader();
 
-                streamActivo = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }, 
-                    // Subimos la resolución a 720p porque las barras 1D de los paquetes necesitan más definición lineal que un QR
-                    audio: false
-                });
+        // 1. CREACIÓN DE HINTS DE ALTO RENDIMIENTO PARA EAN-13
+        const hints = new Map();
+        
+        // Indicamos los formatos específicos de barra a buscar
+        const formatosBarras = [
+            ZXing.BarcodeFormat.EAN_13,
+            ZXing.BarcodeFormat.EAN_8,
+            ZXing.BarcodeFormat.CODE_128 // Mantenemos el estándar logístico
+        ];
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formatosBarras);
+
+        // 🚀 EL CAMBIO CLAVE: Activamos "TRY_HARDER" 
+        // Esto le dice al procesador que gaste más recursos en calcular líneas delgadas y borrosas
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+        // Inyectamos las propiedades al motor analítico antes del stream
+        codeReader.hints = hints;
+
+        // 2. SOLICITUD DE VIDEO EQUILIBRADA
+        // Nota: Si la cámara es el "artilugio" antiguo de PC, 1280x720 puede ser una resolución irreal 
+        // y el sistema la deforma. Usamos un formato estándar estable:
+        streamActivo = await navigator.mediaDevices.getUserMedia({
+            video: { 
+                facingMode: "environment", 
+                width: { ideal: 1280 }, 
+                height: { ideal: 720 } 
+            }, 
+            audio: false
+        });
+        
+        videoElemento.srcObject = streamActivo;
+        agregarLog("Modo de escaneo profundo EAN-13 Activado.");
+
+        // Ejecutar lectura continua
+        codeReader.decodeFromVideoElement(videoElemento, (resultado, error) => {
+            if (resultado) {
+                hacerSonidoBip();
+                agregarLog(`¡CÓDIGO CAPTURADO!: ${resultado.text}`);
                 
-                videoElemento.srcObject = streamActivo;
-                agregarLog("Buscando códigos de barra (Code 128 / EAN / ITF)...");
-
-                // --- MAPEO TÉCNICO EXCLUSIVO PARA CÓDIGOS DE BARRA (1D) ---
-                // Le decimos a ZXing que ignore los QR y concentre el 100% de su procesador en leer líneas tradicionales
-                const formatosBarras = [
-                    ZXing.BarcodeFormat.CODE_128,  // El formato logístico más común en etiquetas
-                    ZXing.BarcodeFormat.EAN_13,    // Códigos de productos comerciales
-                    ZXing.BarcodeFormat.CODE_39,   // Códigos industriales
-                    ZXing.BarcodeFormat.ITF        // Códigos de cajas de cartón corrugado
-                ];
+                document.getElementById("resultado-ok").style.display = "block";
+                document.getElementById("texto-barras").innerText = resultado.text;
                 
-                codeReader.hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS, formatosBarras]]);
-
-                codeReader.decodeFromVideoElement(videoElemento, (resultado, error) => {
-                    if (resultado) {
-                        hacerSonidoBip();
-                        agregarLog(`¡CÓDIGO DE BARRAS LEÍDO!: ${resultado.text}`);
-                        
-                        document.getElementById("resultado-ok").style.display = "block";
-                        document.getElementById("texto-barras").innerText = resultado.text;
-                        
-                        apagarLectorBarras();
-                    }
-                });
-
-            } catch (err) {
-                agregarLog(`ERROR: ${err.message}`);
+                apagarLectorBarras();
             }
-        }
+        });
+
+    } catch (err) {
+        agregarLog(`ERROR: ${err.message}`);
+    }
+}
 
         function apagarLectorBarras() {
             if (codeReader) codeReader.reset();
