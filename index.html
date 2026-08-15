@@ -3,140 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escaner QR - Control de Resolución</title>
-    <!-- Cargamos jsQR desde una red global ultra rápida (CDN) -->
-    <script src="https://jsdelivr.net"></script>
+    <title>Escáner QR Ultra Rápido</title>
+    <!-- Usamos la librería definitiva optimizada para bajo rendimiento -->
+    <script src="https://unpkg.com" type="text/javascript"></script>
     
     <style>
         body { font-family: Arial, sans-serif; text-align: center; background: #f4f7f6; padding: 20px; }
         
-        /* Contenedor del diseño: Ajusta el tamaño aquí */
+        /* Tu contenedor del diseño en formato cuadrado */
         .contenedor-camara { 
-            width: 400px; 
-            height: 400px; 
+            width: 350px; 
+            height: 350px; 
             margin: 0 auto; 
             border: 4px solid #333; 
             border-radius: 12px;
-            overflow: hidden; /* Corta lo que se salga del cuadrado */
-            position: relative;
+            overflow: hidden;
             background: #000;
         }
 
-        /* Forzamos al video a rellenar el cuadrado sin deformarse */
-        video { 
-            width: 90%; 
-            height: 90%; 
-            object-fit: cover; /* Recorta los lados panorámicos para hacerlo cuadrado perfecto */
-        }
-
-        /* Estilo para mostrar el texto del QR */
+        /* Ajustes para el texto leído */
         #cuadro-resultado {
             margin: 20px auto;
             padding: 15px;
             width: 90%;
-            max-width: 370px;
+            max-width: 320px;
             background-color: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
             border-radius: 8px;
-            font-size: 16px;
             font-weight: bold;
-            display: none; /* Oculto hasta que lea algo */
+            display: none;
             word-break: break-all;
         }
     </style>
 </head>
 <body>
 
-    <h2>Escáner en Vivo (Formato Cuadrado)</h2>
+    <h2>Escaneando Código...</h2>
     
-    <!-- Tu DIV de diseño -->
-    <div class="contenedor-camara">
-        <video id="webcam" autoplay playsinline></video>
-    </div>
+    <!-- Aquí se inyectará la cámara automáticamente -->
+    <div class="contenedor-camara" id="lector-webcam"></div>
 
-    <!-- AQUÍ SE MOSTRARÁ EL TEXTO LÉIDO -->
-    <div id="cuadro-resultado" id="resultado-txt">
-        Contenido del QR: <span id="texto-qr"></span>
+    <!-- Muestra del texto final -->
+    <div id="cuadro-resultado">
+        Contenido: <span id="texto-qr"></span>
     </div>
-
-    <!-- Canvas oculto en memoria para que jsQR analice los píxeles sin saturar la RAM -->
-    <canvas id="canvas-interno" style="display:none;"></canvas>
 
     <script>
-const video = document.getElementById('webcam');
-const canvas = document.getElementById('canvas-interno');
-const context = canvas.getContext('2d', { willReadFrequently: true });
-const cuadroResultado = document.getElementById('cuadro-resultado');
-const textoQr = document.getElementById('texto-qr');
+        let html5QrCode;
 
-// CONFIGURACIÓN DE RENDIMIENTO:
-// Analizar la cámara 60 veces por segundo rompe la RAM. 
-// Ajustamos un intervalo controlado para analizar solo 6 veces por segundo (cada 150ms).
-const INTERVALO_ESCANEO = 150; 
-let bucleEscaneo = null;
+        async function iniciarEscaneoProfesional() {
+            // Inicializamos la librería sobre tu DIV de diseño
+            html5QrCode = new Html5Qrcode("lector-webcam");
 
-async function iniciarCamaraEficiente() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: "environment",
-                // Forzamos baja resolución de entrada para que la lectura sea instantánea
-                width: { ideal: 400 },
-                height: { ideal: 300 }
-            },
-            audio: false
-        });
-        video.srcObject = stream;
-        
-        // Iniciar el temporizador controlado en vez de requestAnimationFrame
-        bucleEscaneo = setInterval(escanearCuadroOptimizado, INTERVALO_ESCANEO);
-    } catch (error) {
-        console.error("Error al abrir cámara:", error);
-    }
-}
+            const config = {
+                fps: 10, // Analiza solo 10 cuadros por segundo para que el celular y la PC vieja vayan ultra fluidos
+                qrbox: function(width, height) {
+                    // Crea un área de enfoque interna para obligar al algoritmo a concentrarse en el centro
+                    return { width: Math.floor(width * 0.7), height: Math.floor(height * 0.7) };
+                },
+                // Forzamos una resolución nativa baja para que el motor matemático no se sature
+                videoConstraints: {
+                    facingMode: "environment",
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                }
+            };
 
-function escanearCuadroOptimizado() {
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-
-        // ¡EL TRUCO MAESTRO!: Aplicamos contraste extremo nativo por CSS directo al canvas.
-        // Esto binariza la imagen al instante por Hardware (GPU) sin usar bucles "for".
-        context.filter = "grayscale(100%) contrast(300%) brightness(90%)";
-        
-        // Dibujamos el cuadro con el filtro ya aplicado magnéticamente
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Extraemos los datos pre-filtrados sin esfuerzo para el procesador
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // jsQR recibe la imagen perfectamente nítida y limpia
-        const codigoIdentificado = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert"
-        });
-
-        if (codigoIdentificado) {
-            // Detener el intervalo de inmediato para congelar el consumo de memoria
-            clearInterval(bucleEscaneo);
-            
-            console.log("¡QR SEC Detectado!", codigoIdentificado.data);
-            cuadroResultado.style.display = "block";
-            textoQr.innerText = codigoIdentificado.data;
-            
-            detenerCamara(video.srcObject);
+            // Arrancamos la cámara trasera (o la webcam por defecto en PC)
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                onScanSuccess, // Si encuentra el QR
+                onScanFailure  // Si sigue buscando en silencio
+            ).catch(err => {
+                console.error("Error al iniciar el escáner:", err);
+            });
         }
-    }
-}
 
-function detenerCamara(stream) {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-    }
-}
+        function onScanSuccess(decodedText, decodedResult) {
+            // ¡LEÍDO! Detenemos la cámara de inmediato para liberar el 100% de la RAM
+            html5QrCode.stop().then(() => {
+                console.log("Código leído correctamente.");
+                
+                // Pintamos el resultado en tu HTML
+                document.getElementById("cuadro-resultado").style.display = "block";
+                document.getElementById("texto-qr").innerText = decodedText;
+            }).catch(err => {
+                console.error("Error al detener la cámara:", err);
+            });
+        }
 
-window.addEventListener('DOMContentLoaded', iniciarCamaraEficiente);
+        function onScanFailure(error) {
+            // Deja este bloque vacío para que no genere lag con logs repetitivos
+        }
 
+        // Cargar al iniciar la web
+        window.addEventListener('DOMContentLoaded', iniciarEscaneoProfesional);
     </script>
 </body>
 </html>
