@@ -2,119 +2,103 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Módulo Lector Híbrido Pro</title>
-    <!-- Cargamos librerías especializadas para QR y Códigos de Barras industriales -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner QR Profesional</title>
+    <!-- 1. Cargamos la librería oficial optimizada para móviles -->
     <script src="https://unpkg.com" type="text/javascript"></script>
-    <script src="https://jsdelivr.net"></script>
+    
     <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f6f9; text-align: center; }
-        .container { width: 100%; box-sizing: border-box; padding: 15px; }
-        #label-estado { display: block; width: 100%; padding: 15px; margin-bottom: 15px; background-color: #007bff; color: white; text-align: center; font-weight: bold; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
-        .btn-camara { display: inline-block; width: 100%; padding: 20px; background-color: #28a745; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        #input-archivo { display: none; }
-        .barra-dato { width: 100%; padding: 15px; margin-bottom: 10px; background-color: #ffffff; color: #333333; text-align: left; font-weight: bold; border-left: 5px solid #6c757d; border-radius: 4px; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 15px; display: none; }
-        .barra-dato span { font-weight: normal; color: #666; float: right; }
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .btn { padding: 15px 30px; font-size: 16px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; color: white; width: 100%; max-width: 400px; margin-bottom: 15px; }
+        .btn-blue { background-color: #007bff; }
+        .btn-green { background-color: #28a745; }
+        
+        /* Contenedor del video en vivo */
+        #contenedor-lector {
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            background: #000;
+        }
+        
+        /* Estilo personalizado para el resultado */
+        #resultado {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #d4edda;
+            color: #155724;
+            border-radius: 5px;
+            display: none;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <div id="label-estado">Listo para escanear2...</div>
-        
-        <button class="btn-camara" onclick="abrirCamaraZTE()">📸 SACAR FOTO Y ESCANEAR</button>
-        <input type="file" id="input-archivo" accept="image/*" capture="environment">
-
-        <div id="barra-sku" class="barra-dato">📦 SKU / CÓDIGO: <span id="txt-sku">-</span></div>
-        <div id="barra-serie" class="barra-dato">🔢 SERIE: <span id="txt-serie">-</span></div>
-        <div id="barra-estado" class="barra-dato">📝 ESTADO / OC: <span id="txt-estado">-</span></div>
-    </div>
-
-<script>
-    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbwZEf8kmBMRgjvdcImNUb0mxxOfjauw6XKCcFKbs_mRxT3HIL5GYuru-WhF_z91NXbh_Q/exec";
+    <button class="btn btn-blue" id="estado-txt">Listo para escanear...</button>
     
-    const label = document.getElementById("label-estado");
-    const fileInput = document.getElementById("input-archivo");
+    <!-- Aquí se renderizará la cámara con su marco de enfoque automáticamente -->
+    <div id="contenedor-lector"></div>
+    
+    <div id="resultado"></div>
 
-    function abrirCamaraZTE() {
-        fileInput.click();
-    }
+    <script>
+        let html5QrcodeScanner;
 
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length === 0) return;
-        
-        const archivoFoto = e.target.files[0];
-        label.innerText = "Analizando imagen (Modo Híbrido)...";
-        label.style.backgroundColor = "#ffc107";
+        function iniciarEscaner() {
+            // Configuración del escaner
+            html5QrcodeScanner = new Html5Qrcode("contenedor-lector");
 
-        const urlImagen = URL.createObjectURL(archivoFoto);
-        
-        // INTENTO 1: Procesar como Código QR
-        const html5QrCode = new Html5Qrcode("label-estado");
-        html5QrCode.scanFile(archivoFoto, false)
-        .then(textoQR => {
-            desglosarYEnviar(textoQR);
-        })
-        .catch(() => {
-            // INTENTO 2: Si falla como QR, usamos el motor Quagga especializado en líneas de códigos de barra (1D)
-            procesarCodigoBarrasLíneas(urlImagen);
-        });
-    });
+            const config = { 
+                fps: 15, // Cuántas veces por segundo analiza la imagen (15 es ideal para no saturar la RAM)
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    // Define un marco cuadrado dinámico (ej: 250x250 píxeles) centrado en la pantalla
+                    let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                    let edgeSize = Math.floor(minEdge * 0.6);
+                    return { width: edgeSize, height: edgeSize };
+                },
+                aspectRatio: 1.0 // Fuerza un cuadro perfecto de enfoque
+            };
 
-    function procesarCodigoBarrasLíneas(srcImagen) {
-        Quagga.decodeSingle({
-            src: srcImagen,
-            numOfWorkers: 0,
-            inputStream: { size: 1280 }, // Ajuste óptimo para resoluciones ZTE
-            decoder: {
-                readers: ["code_128_reader", "ean_reader", "code_39_reader", "upc_reader"] // Formatos de barras más comunes
-            },
-            locate: true // Activa el localizador inteligente de líneas horizontales
-        }, function(resultado) {
-            if(resultado && resultado.codeResult) {
-                desglosarYEnviar(resultado.codeResult.code);
-            } else {
-                label.innerText = "No se detectó QR ni Código de Barras válido. Intente enfocar mejor.";
-                label.style.backgroundColor = "#dc3545";
-            }
-        });
-    }
+            // Iniciar la cámara trasera ("environment")
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                config,
+                onScanSuccess, // Función si encuentra un QR
+                onScanFailure  // Función si está buscando y no encuentra nada en ese cuadro
+            ).catch(err => {
+                console.error("Error al iniciar cámara web:", err);
+                alert("Asegúrate de estar usando HTTPS para poder abrir la cámara en vivo.");
+            });
+        }
 
-    function desglosarYEnviar(stringCompleto) {
-        const partes = stringCompleto.split('#');
-        
-        const sku = partes[0] || stringCompleto;
-        const serie = partes[1] || "";
-        const estado = partes[2] || "";
+        // Se ejecuta automáticamente EN EL INSTANTE que detecta el QR
+        function onScanSuccess(decodedText, decodedResult) {
+            // 1. Detenemos la cámara de inmediato para liberar la memoria RAM por completo
+            html5QrcodeScanner.stop().then(() => {
+                document.getElementById("estado-txt").innerText = "¡Escaneo Exitoso!";
+                
+                // 2. Mostramos el resultado en pantalla
+                const contenedorResultado = document.getElementById("resultado");
+                contenedorResultado.style.display = "block";
+                contenedorResultado.innerHTML = `<strong>Escrito:</strong> <a href="${decodedText}" target="_blank">${decodedText}</a>`;
+                
+                console.log(`Código leído: ${decodedText}`);
+            }).catch(err => {
+                console.error("Error al detener el escaner:", err);
+            });
+        }
 
-        document.getElementById("txt-sku").innerText = sku;
-        document.getElementById("txt-serie").innerText = serie ? serie : "No aplica";
-        document.getElementById("txt-estado").innerText = estado ? estado : "No aplica";
+        function onScanFailure(error) {
+            // Este bucle corre en silencio mientras busca el QR. 
+            // No ponemos alertas aquí para evitar colapsar la pantalla.
+        }
 
-        document.getElementById("barra-sku").style.style.display = "block";
-        document.getElementById("barra-serie").style.display = "block";
-        document.getElementById("barra-estado").style.display = "block";
-
-        label.innerText = "Guardando en Google Sheets...";
-        label.style.backgroundColor = "#17a2b8";
-
-        fetch(URL_GOOGLE_SCRIPT, {
-            method: "POST",
-            mode: "cors",
-            credentials: "include",
-            body: JSON.stringify({ sku: sku, serie: serie, estado: estado }),
-            headers: { "Content-Type": "text/plain" }
-        })
-        .then(() => {
-            label.innerText = "Escrito: " + sku;
-            label.style.backgroundColor = "#28a745";
-        })
-        .catch(() => {
-            label.innerText = "Escrito: " + sku;
-            label.style.backgroundColor = "#28a745";
-        });
-    }
-</script>
-
+        // Iniciar el flujo automáticamente al cargar la página
+        window.addEventListener('DOMContentLoaded', iniciarEscaner);
+    </script>
 </body>
 </html>
