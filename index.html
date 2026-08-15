@@ -3,29 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Escáner QR - Botón Nativo</title>
-    <!-- Cargamos la librería para decodificar fotos -->
-    <script src="https://unpkg.com" type="text/javascript"></script>
+    <title>Módulo Lector de Fotos QR</title>
     <style>
         body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f6f9; text-align: center; }
         .container { width: 100%; box-sizing: border-box; padding: 20px; }
-        #label-estado { display: block; width: 100%; padding: 15px; margin-bottom: 20px; background-color: #007bff; color: white; text-align: center; font-weight: bold; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
-        
-        /* Botón grande para el celular */
-        .btn-camara {
-            display: inline-block;
-            width: 100%;
-            padding: 20px;
-            background-color: #28a745;
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        /* Ocultamos el input de archivo feo del navegador */
+        #label-estado { display: block; width: 100%; padding: 15px; margin-bottom: 25px; background-color: #007bff; color: white; text-align: center; font-weight: bold; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
+        .btn-camara { display: inline-block; width: 100%; padding: 20px; background-color: #28a745; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         #input-archivo { display: none; }
     </style>
 </head>
@@ -33,47 +16,77 @@
 
     <div class="container">
         <div id="label-estado">Listo para escanear...</div>
-        
-        <!-- Botón que activa la cámara del celular -->
-        <button class="btn-camara" onclick="activarCamaraNativa()">📸 ABRIR CÁMARA Y ESCANEAR</button>
-        
-        <!-- Input oculto que captura la foto de la cámara -->
+        <button class="btn-camara" onclick="abrirCamaraZTE()">📸 SACAR FOTO Y ESCANEAR</button>
         <input type="file" id="input-archivo" accept="image/*" capture="environment">
     </div>
 
 <script>
     // REEMPLAZA ESTA URL CON TU LINK DE GOOGLE APPS SCRIPT
-    const URL_GOOGLE_SCRIPT = "TU_URL_DE_GOOGLE_SHEETS";
+    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbwZEf8kmBMRgjvdcImNUb0mxxOfjauw6XKCcFKbs_mRxT3HIL5GYuru-WhF_z91NXbh_Q/exec";
     
     const label = document.getElementById("label-estado");
     const fileInput = document.getElementById("input-archivo");
-    const html5QrCode = new Html5Qrcode("label-estado"); // Usamos el label como puente invisible
 
-    function activarCamaraNativa() {
-        fileInput.click(); // Fuerza al celular a abrir su cámara nativa
+    function abrirCamaraZTE() {
+        fileInput.click();
     }
 
-    // Escuchar cuando el usuario toma la foto y la acepta
-    fileInput.addEventListener('change', e => {
+    fileInput.addEventListener('change', async (e) => {
         if (e.target.files.length === 0) return;
         
-        const archivoImagen = e.target.files[0];
-        label.innerText = "Procesando imagen del código...";
+        const archivoFoto = e.target.files[0];
+        label.innerText = "Interpretando código de la foto...";
         label.style.backgroundColor = "#ffc107";
 
-        // La librería lee la foto que acabas de tomar
-        html5QrCode.scanFile(archivoImagen, true)
-        .then(textoEscaneado => {
-            enviarAGoogle(textoEscaneado);
-        })
-        .catch(err => {
-            label.innerText = "No se detectó ningún QR claro. Intente otra foto.";
-            label.style.backgroundColor = "#dc3545";
-        });
+        // Crear una imagen invisible en memoria para procesar la foto tomada
+        const img = new Image();
+        img.src = URL.createObjectURL(archivoFoto);
+        
+        img.onload = async () => {
+            try {
+                // Usamos el interpretador inteligente de códigos nativo del celular
+                const detector = new BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39'] });
+                const simbolosDetectados = await detector.detect(img);
+                
+                if (simbolosDetectados.length > 0) {
+                    const textoQR = simbolosDetectados[0].rawValue;
+                    enviarAGoogleSheets(textoQR);
+                } else {
+                    label.innerText = "No se halló el QR. Asegúrate de enfocar bien e intenta otra foto.";
+                    label.style.backgroundColor = "#dc3545";
+                }
+            } catch (error) {
+                // Alternativa por si el motor nativo requiere un puente estándar
+                fallbackDeLectura(archivoFoto);
+            }
+        };
     });
 
-    function enviarAGoogle(texto) {
-        label.innerText = "Guardando en Google Sheets...";
+    // Procesador secundario en caso de fotos sumamente masivas
+    function fallbackDeLectura(foto) {
+        const formatoImagen = new Image();
+        formatoImagen.src = URL.createObjectURL(foto);
+        formatoImagen.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            // Reducimos la escala a la mitad para forzar al procesador a leerlo rápido
+            canvas.width = formatoImagen.width / 2;
+            canvas.height = formatoImagen.height / 2;
+            ctx.drawImage(formatoImagen, 0, 0, canvas.width, canvas.height);
+            
+            window.BarcodeDetector ? new BarcodeDetector({ formats: ['qr_code'] }).detect(canvas).then(res => {
+                if(res.length > 0) enviarAGoogleSheets(res[0].rawValue);
+                else throw new Error();
+            }).catch(() => {
+                label.innerText = "Error al procesar. Intenta tomar la foto un poco más lejos.";
+                label.style.backgroundColor = "#dc3545";
+            }) : label.innerText = "Librería no soportada en este navegador.";
+        }
+    }
+
+    function enviarAGoogleSheets(texto) {
+        label.innerText = "¡Código leído! Guardando en Planilla...";
+        label.style.backgroundColor = "#17a2b8";
         
         fetch(URL_GOOGLE_SCRIPT, {
             method: "POST",
@@ -85,15 +98,15 @@
         .then(response => response.json())
         .then(data => {
             if (data.status === "success") {
-                label.innerText = "¡Guardado con éxito!";
+                label.innerText = "¡Guardado con éxito! " + texto;
                 label.style.backgroundColor = "#28a745";
             } else {
-                label.innerText = "Error: " + data.message;
+                label.innerText = "Error Planilla: " + data.message;
                 label.style.backgroundColor = "#dc3545";
             }
         })
         .catch(error => {
-            label.innerText = "Error de red o permisos de cuenta Google.";
+            label.innerText = "Error de red o cuenta de Google.";
             label.style.backgroundColor = "#dc3545";
         });
     }
