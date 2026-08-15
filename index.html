@@ -3,102 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner QR Profesional</title>
-    <!-- 1. Cargamos la librería oficial optimizada para móviles -->
-    <script src="https://unpkg.com" type="text/javascript"></script>
-    
+    <title>Escáner de Cámara</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f7f6; margin: 0; padding: 20px; }
-        .btn { padding: 15px 30px; font-size: 16px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; color: white; width: 100%; max-width: 400px; margin-bottom: 15px; }
-        .btn-blue { background-color: #007bff; }
-        .btn-green { background-color: #28a745; }
-        
-        /* Contenedor del video en vivo */
-        #contenedor-lector {
-            width: 100%;
-            max-width: 450px;
-            margin: 0 auto;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            background: #000;
-        }
-        
-        /* Estilo personalizado para el resultado */
-        #resultado {
-            margin-top: 15px;
-            padding: 15px;
-            background-color: #d4edda;
-            color: #155724;
-            border-radius: 5px;
-            display: none;
-            word-break: break-all;
-        }
+        /* Estilos básicos para centrar y ajustar la cámara */
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f7f6; }
+        video { width: 100%; max-width: 500px; border-radius: 8px; background: #000; }
+        button { padding: 15px 30px; font-size: 16px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; margin: 10px; }
+        .btn-scan { background-color: #28a745; color: white; }
     </style>
 </head>
 <body>
 
-    <button class="btn btn-blue" id="estado-txt">Listo para escanear...</button>
+    <h2>Listo para escanear...</h2>
     
-    <!-- Aquí se renderizará la cámara con su marco de enfoque automáticamente -->
-    <div id="contenedor-lector"></div>
+    <!-- Elemento donde se mostrará la cámara en vivo -->
+    <video id="webcam" autoplay playsinline></video>
     
-    <div id="resultado"></div>
+    <br>
+    <button class="btn-scan" id="btn-capturar">📸 SACAR FOTO Y ESCANEAR</button>
+
+    <!-- Canvas oculto para procesar la imagen de la foto -->
+    <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        let html5QrcodeScanner;
+        const video = document.getElementById('webcam');
+        const btnCapturar = document.getElementById('btn-capturar');
+        const canvas = document.getElementById('canvas');
 
-        function iniciarEscaner() {
-            // Configuración del escaner
-            html5QrcodeScanner = new Html5Qrcode("contenedor-lector");
-
-            const config = { 
-                fps: 15, // Cuántas veces por segundo analiza la imagen (15 es ideal para no saturar la RAM)
-                qrbox: function(viewfinderWidth, viewfinderHeight) {
-                    // Define un marco cuadrado dinámico (ej: 250x250 píxeles) centrado en la pantalla
-                    let minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    let edgeSize = Math.floor(minEdge * 0.6);
-                    return { width: edgeSize, height: edgeSize };
-                },
-                aspectRatio: 1.0 // Fuerza un cuadro perfecto de enfoque
-            };
-
-            // Iniciar la cámara trasera ("environment")
-            html5QrcodeScanner.start(
-                { facingMode: "environment" }, 
-                config,
-                onScanSuccess, // Función si encuentra un QR
-                onScanFailure  // Función si está buscando y no encuentra nada en ese cuadro
-            ).catch(err => {
-                console.error("Error al iniciar cámara web:", err);
-                alert("Asegúrate de estar usando HTTPS para poder abrir la cámara en vivo.");
-            });
+        // 1. Activar la cámara automáticamente al cargar
+        async function iniciarCamara() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        // "environment" obliga a usar la cámara trasera del celular
+                        facingMode: "environment" 
+                    },
+                    audio: false
+                });
+                video.srcObject = stream;
+            } catch (error) {
+                alert("Error al acceder a la cámara: " + error.message);
+            }
         }
 
-        // Se ejecuta automáticamente EN EL INSTANTE que detecta el QR
-        function onScanSuccess(decodedText, decodedResult) {
-            // 1. Detenemos la cámara de inmediato para liberar la memoria RAM por completo
-            html5QrcodeScanner.stop().then(() => {
-                document.getElementById("estado-txt").innerText = "¡Escaneo Exitoso!";
-                
-                // 2. Mostramos el resultado en pantalla
-                const contenedorResultado = document.getElementById("resultado");
-                contenedorResultado.style.display = "block";
-                contenedorResultado.innerHTML = `<strong>Escrito:</strong> <a href="${decodedText}" target="_blank">${decodedText}</a>`;
-                
-                console.log(`Código leído: ${decodedText}`);
-            }).catch(err => {
-                console.error("Error al detener el escaner:", err);
-            });
-        }
+        // 2. Capturar la foto al presionar el botón green
+        btnCapturar.addEventListener('click', () => {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Dibuja el cuadro actual del video en el canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convertir la imagen a formato Base64 (puedes mandarla a un servidor o procesarla)
+            const fotoBase64 = canvas.toDataURL('image/jpeg');
+            
+            console.log("Foto capturada con éxito");
+            alert("¡Foto capturada! Ya puedes procesar el escaneo.");
+        });
 
-        function onScanFailure(error) {
-            // Este bucle corre en silencio mientras busca el QR. 
-            // No ponemos alertas aquí para evitar colapsar la pantalla.
-        }
-
-        // Iniciar el flujo automáticamente al cargar la página
-        window.addEventListener('DOMContentLoaded', iniciarEscaner);
+        // Iniciar la cámara al abrir la web
+        window.addEventListener('DOMContentLoaded', iniciarCamara);
     </script>
 </body>
 </html>
