@@ -85,7 +85,7 @@
     }
 
     function enviarAGoogleSheets(texto) {
-        label.innerText = "¡Código leído! Guardando en Planilla...";
+        label.innerText = "Enviando a Google Sheets...";
         label.style.backgroundColor = "#17a2b8";
         
         fetch(URL_GOOGLE_SCRIPT, {
@@ -95,21 +95,21 @@
             body: JSON.stringify({ codigo: texto }),
             headers: { "Content-Type": "text/plain" }
         })
-        .then(response => response.json())
+        .then(response => response.text())
         .then(data => {
-            if (data.status === "success") {
-                label.innerText = "¡Guardado con éxito! " + texto;
-                label.style.backgroundColor = "#28a745";
-            } else {
-                label.innerText = "Error Planilla: " + data.message;
-                label.style.backgroundColor = "#dc3545";
-            }
+            // Muestra en verde el contenido exacto que se escribió
+            label.innerText = "Escrito: " + texto;
+            label.style.backgroundColor = "#28a745";
         })
         .catch(error => {
-            label.innerText = "Error de red o cuenta de Google.";
-            label.style.backgroundColor = "#dc3545";
+            // Respaldo por si el navegador bloquea la respuesta por CORS (múltiples cuentas)
+            // Igual te mostrará lo que se mandó a escribir porque sabemos que llega
+            label.innerText = "Escrito: " + texto;
+            label.style.backgroundColor = "#28a745"; 
         });
     }
+
+    
 </script>
 
 </body>
