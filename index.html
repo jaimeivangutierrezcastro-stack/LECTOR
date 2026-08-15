@@ -79,7 +79,7 @@
     </div>
 
     <script>
-        let html5QrCode = null;
+        let Html5Qrcode = null;
         let camarasEncontradas = [];
         let camaraSeleccionadaId = null;
 
@@ -108,7 +108,7 @@
             agregarLog("Solicitando permisos y listando cámaras...");
             try {
                 // Instanciamos el lector en el div
-                html5QrCode = new Html5Qrcode("visor-webcam");
+                Html5QrCode = new Html5Qrcode("visor-webcam");
                 
                 // Pedimos las cámaras al sistema operativo
                 camarasEncontradas = await Html5Qrcode.getCameras();
@@ -157,7 +157,7 @@
 
             try {
                 // Arrancamos pasándole el ID exacto que obtuvimos en el paso 1
-                await html5QrCode.start(
+                await Html5Qrcode.start(
                     camaraSeleccionadaId,
                     configEscaneo,
                     alDetectarQR,
@@ -171,7 +171,7 @@
                 
                 // Intento de rescate si el ID falló (Caso de webcams muy antiguas en PC)
                 try {
-                    await html5QrCode.start({ facingMode: "environment" }, configEscaneo, alDetectarQR, alFallarCuadro);
+                    await Html5Qrcode.start({ facingMode: "environment" }, configEscaneo, alDetectarQR, alFallarCuadro);
                     agregarLog("Enlazado con éxito mediante modo genérico.");
                 } catch (err2) {
                     agregarLog(`FALLO TOTAL: El hardware de la cámara rechazó el stream web.`);
@@ -198,9 +198,9 @@
 
         // --- BOTÓN 3: APAGAR Y LIMPIAR ---
         async function apagarCamaraForzado() {
-            if (html5QrCode && html5QrCode.isScanning()) {
+            if (Html5Qrcode && Html5Qrcode.isScanning()) {
                 try {
-                    await html5QrCode.stop();
+                    await Html5Qrcode.stop();
                     agregarLog("Transmisión cerrada. Memoria RAM liberada.");
                     document.getElementById('placeholder-txt').style.display = "block";
                     document.getElementById('placeholder-txt').innerText = "Cámara Apagada";
