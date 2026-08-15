@@ -64,69 +64,79 @@
     <canvas id="canvas-interno" style="display:none;"></canvas>
 
     <script>
-        const video = document.getElementById('webcam');
-        const canvas = document.getElementById('canvas-interno');
-        const context = canvas.getContext('2d', { willReadFrequently: true });
-        const cuadroResultado = document.getElementById('cuadro-resultado');
-        const textoQr = document.getElementById('texto-qr');
+const video = document.getElementById('webcam');
+const canvas = document.getElementById('canvas-interno');
+const context = canvas.getContext('2d', { willReadFrequently: true });
+const cuadroResultado = document.getElementById('cuadro-resultado');
+const textoQr = document.getElementById('texto-qr');
 
-        async function iniciarCamaraPC() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: "environment",
-                        // CORRECCIÓN DE RESOLUCIÓN: Forzamos un formato estándar 4:3 (640x480) 
-                        // en lugar de resoluciones panorámicas HD (16:9) que congelan la RAM
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    },
-                    audio: false
-                });
-                video.srcObject = stream;
-                
-                // Iniciamos el bucle de lectura automática en vivo
-                requestAnimationFrame(escanearCuadro);
-            } catch (error) {
-                alert("Error al abrir cámara: " + error.message);
-            }
-        }
+// CONFIGURACIÓN DE RENDIMIENTO:
+// Analizar la cámara 60 veces por segundo rompe la RAM. 
+// Ajustamos un intervalo controlado para analizar solo 6 veces por segundo (cada 150ms).
+const INTERVALO_ESCANEO = 150; 
+let bucleEscaneo = null;
 
-        function escanearCuadro() {
+async function iniciarCamaraEficiente() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: "environment",
+                // Forzamos baja resolución de entrada para que la lectura sea instantánea
+                width: { ideal: 400 },
+                height: { ideal: 300 }
+            },
+            audio: false
+        });
+        video.srcObject = stream;
+        
+        // Iniciar el temporizador controlado en vez de requestAnimationFrame
+        bucleEscaneo = setInterval(escanearCuadroOptimizado, INTERVALO_ESCANEO);
+    } catch (error) {
+        console.error("Error al abrir cámara:", error);
+    }
+}
+
+function escanearCuadroOptimizado() {
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
+
+        // ¡EL TRUCO MAESTRO!: Aplicamos contraste extremo nativo por CSS directo al canvas.
+        // Esto binariza la imagen al instante por Hardware (GPU) sin usar bucles "for".
+        context.filter = "grayscale(100%) contrast(300%) brightness(90%)";
+        
+        // Dibujamos el cuadro con el filtro ya aplicado magnéticamente
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // 1. Extraemos los píxeles para procesarlos antes de que los lea jsQR
+        // Extraemos los datos pre-filtrados sin esfuerzo para el procesador
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;    
-        // 3. Enviamos la imagen limpia de ruido a la librería
-        const codigoIdentificado = jsQR(data, imageData.width, imageData.height, {
+        
+        // jsQR recibe la imagen perfectamente nítida y limpia
+        const codigoIdentificado = jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: "dontInvert"
         });
 
         if (codigoIdentificado) {
-            console.log("¡QR Detectado!", codigoIdentificado.data);
+            // Detener el intervalo de inmediato para congelar el consumo de memoria
+            clearInterval(bucleEscaneo);
+            
+            console.log("¡QR SEC Detectado!", codigoIdentificado.data);
             cuadroResultado.style.display = "block";
             textoQr.innerText = codigoIdentificado.data;
+            
             detenerCamara(video.srcObject);
-            return; 
         }
     }
-    
-    requestAnimationFrame(escanearCuadro);
 }
 
+function detenerCamara(stream) {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+}
 
-        function detenerCamara(stream) {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                console.log("Cámara apagada. Memoria liberada.");
-            }
-        }
+window.addEventListener('DOMContentLoaded', iniciarCamaraEficiente);
 
-        // Arrancar el proceso al abrir la web
-        window.addEventListener('DOMContentLoaded', iniciarCamaraPC);
     </script>
 </body>
 </html>
