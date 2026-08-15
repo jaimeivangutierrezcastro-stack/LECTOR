@@ -115,6 +115,7 @@
                 });
 
                 if (codigo) {
+                    hacerSonidoBip();
                     agregarLog("¡CÓDIGO QR ESCANEADO!");
                     document.getElementById("resultado-ok").style.display = "block";
                     document.getElementById("texto-qr").innerText = codigo.data;
@@ -134,6 +135,32 @@
             document.getElementById('placeholder-txt').style.display = "block";
             document.getElementById('placeholder-txt').innerText = "Cámara Apagada";
         }
+
+    function hacerSonidoBip() {
+    try {
+        // Creamos el contexto de audio nativo del sistema
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.type = 'sine'; // Tono senoidal puro
+        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime); // Frecuencia en Hz (tono agudo)
+        
+        // Control de volumen para que no sature
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); 
+
+        // Duración del pitido
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.15); // 0.15 segundos de duración
+    } catch (e) {
+        console.log("El audio fue bloqueado o no está soportado:", e);
+    }
+}
+
+    
     </script>
 </body>
 </html>
