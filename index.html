@@ -3,87 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Lector QR de Alta Compatibilidad</title>
+    <title>Escáner QR - Botón Nativo</title>
+    <!-- Cargamos la librería para decodificar fotos -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f6f9; }
-        .container { width: 100%; box-sizing: border-box; padding: 10px; }
-        #label-estado { display: block; width: 100%; padding: 15px; margin-bottom: 10px; background-color: #007bff; color: white; text-align: center; font-weight: bold; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
-        #lector-qr { width: 100% !important; border: none !important; border-radius: 8px; overflow: hidden; background-color: #000; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f6f9; text-align: center; }
+        .container { width: 100%; box-sizing: border-box; padding: 20px; }
+        #label-estado { display: block; width: 100%; padding: 15px; margin-bottom: 20px; background-color: #007bff; color: white; text-align: center; font-weight: bold; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
+        
+        /* Botón grande para el celular */
+        .btn-camara {
+            display: inline-block;
+            width: 100%;
+            padding: 20px;
+            background-color: #28a745;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        /* Ocultamos el input de archivo feo del navegador */
+        #input-archivo { display: none; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <div id="label-estado">Iniciando cámara...</div>
-        <div id="lector-qr"></div>
+        <div id="label-estado">Listo para escanear...</div>
+        
+        <!-- Botón que activa la cámara del celular -->
+        <button class="btn-camara" onclick="activarCamaraNativa()">📸 ABRIR CÁMARA Y ESCANEAR</button>
+        
+        <!-- Input oculto que captura la foto de la cámara -->
+        <input type="file" id="input-archivo" accept="image/*" capture="environment">
     </div>
 
 <script>
-    // REEMPLAZA ESTA URL CON LA DE GOOGLE APPS SCRIPT (MÉTODO 2)
-    const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbwZEf8kmBMRgjvdcImNUb0mxxOfjauw6XKCcFKbs_mRxT3HIL5GYuru-WhF_z91NXbh_Q/exec";
+    // REEMPLAZA ESTA URL CON TU LINK DE GOOGLE APPS SCRIPT
+    const URL_GOOGLE_SCRIPT = "TU_URL_DE_GOOGLE_SHEETS";
     
-    let escaneando = true;
     const label = document.getElementById("label-estado");
+    const fileInput = document.getElementById("input-archivo");
+    const html5QrCode = new Html5Qrcode("label-estado"); // Usamos el label como puente invisible
 
-    function alDetectarCodigo(textoEscaneado) {
-        if (!escaneando) return;
-        escaneando = false; 
+    function activarCamaraNativa() {
+        fileInput.click(); // Fuerza al celular a abrir su cámara nativa
+    }
+
+    // Escuchar cuando el usuario toma la foto y la acepta
+    fileInput.addEventListener('change', e => {
+        if (e.target.files.length === 0) return;
         
-        label.innerText = "Procesando código...";
-        label.style.backgroundColor = "#ffc107"; 
+        const archivoImagen = e.target.files[0];
+        label.innerText = "Procesando imagen del código...";
+        label.style.backgroundColor = "#ffc107";
 
+        // La librería lee la foto que acabas de tomar
+        html5QrCode.scanFile(archivoImagen, true)
+        .then(textoEscaneado => {
+            enviarAGoogle(textoEscaneado);
+        })
+        .catch(err => {
+            label.innerText = "No se detectó ningún QR claro. Intente otra foto.";
+            label.style.backgroundColor = "#dc3545";
+        });
+    });
+
+    function enviarAGoogle(texto) {
+        label.innerText = "Guardando en Google Sheets...";
+        
         fetch(URL_GOOGLE_SCRIPT, {
             method: "POST",
             mode: "cors",
-            credentials: "include", 
-            body: JSON.stringify({ codigo: textoEscaneado }),
+            credentials: "include",
+            body: JSON.stringify({ codigo: texto }),
             headers: { "Content-Type": "text/plain" }
         })
         .then(response => response.json())
         .then(data => {
             if (data.status === "success") {
-                label.innerText = "¡Guardado en Planilla!";
-                label.style.backgroundColor = "#28a745"; 
+                label.innerText = "¡Guardado con éxito!";
+                label.style.backgroundColor = "#28a745";
             } else {
-                label.innerText = "Error Google: " + data.message;
+                label.innerText = "Error: " + data.message;
                 label.style.backgroundColor = "#dc3545";
             }
-            setTimeout(() => {
-                escaneando = true;
-                label.innerText = "Listo para escanear código...";
-                label.style.backgroundColor = "#007bff";
-            }, 3000);
         })
         .catch(error => {
-            label.innerText = "Error de red o cuenta de Google.";
-            label.style.backgroundColor = "#dc3545";
-            setTimeout(() => { escaneando = true; label.innerText = "Listo para escanear..."; label.style.backgroundColor = "#007bff"; }, 3000);
-        });
-    }
-
-    function iniciarEscaner() {
-        // Inicialización nativa directa idéntica a ScanApp
-        const html5QrcodeScanner = new Html5Qrcode("lector-qr");
-        
-        html5QrcodeScanner.start(
-            { facingMode: "environment" }, 
-            {
-                fps: 10,
-                qrbox: (width, height) => { return { width: width * 0.8, height: height * 0.5 }; }
-            },
-            alDetectarCodigo
-        )
-        .then(() => {
-            label.innerText = "Listo para escanear código...";
-        })
-        .catch(err => {
-            label.innerText = "Error al conectar con la cámara.";
+            label.innerText = "Error de red o permisos de cuenta Google.";
             label.style.backgroundColor = "#dc3545";
         });
     }
-
-    window.addEventListener("DOMContentLoaded", iniciarEscaner);
 </script>
 
 </body>
