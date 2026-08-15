@@ -3,67 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner de Cámara</title>
+    <title>Escaner QR - Control de Resolución</title>
+    <!-- Cargamos jsQR desde una red global ultra rápida (CDN) -->
+    <script src="https://jsdelivr.net"></script>
+    
     <style>
-        /* Estilos básicos para centrar y ajustar la cámara */
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f7f6; }
-        video { width: 100%; max-width: 500px; border-radius: 8px; background: #000; }
-        button { padding: 15px 30px; font-size: 16px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; margin: 10px; }
-        .btn-scan { background-color: #28a745; color: white; }
+        body { font-family: Arial, sans-serif; text-align: center; background: #f4f7f6; padding: 20px; }
+        
+        /* Contenedor del diseño: Ajusta el tamaño aquí */
+        .contenedor-camara { 
+            width: 400px; 
+            height: 400px; 
+            margin: 0 auto; 
+            border: 4px solid #333; 
+            border-radius: 12px;
+            overflow: hidden; /* Corta lo que se salga del cuadrado */
+            position: relative;
+            background: #000;
+        }
+
+        /* Forzamos al video a rellenar el cuadrado sin deformarse */
+        video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; /* Recorta los lados panorámicos para hacerlo cuadrado perfecto */
+        }
+
+        /* Estilo para mostrar el texto del QR */
+        #cuadro-resultado {
+            margin: 20px auto;
+            padding: 15px;
+            width: 90%;
+            max-width: 370px;
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            display: none; /* Oculto hasta que lea algo */
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
 
-    <h2>Listo para escanear...</h2>
+    <h2>Escáner en Vivo (Formato Cuadrado)</h2>
     
-    <!-- Elemento donde se mostrará la cámara en vivo -->
-    <video id="webcam" autoplay playsinline></video>
-    
-    <br>
-    <button class="btn-scan" id="btn-capturar">📸 SACAR FOTO Y ESCANEAR</button>
+    <!-- Tu DIV de diseño -->
+    <div class="contenedor-camara">
+        <video id="webcam" autoplay playsinline></video>
+    </div>
 
-    <!-- Canvas oculto para procesar la imagen de la foto -->
-    <canvas id="canvas" style="display:none;"></canvas>
+    <!-- AQUÍ SE MOSTRARÁ EL TEXTO LÉIDO -->
+    <div id="cuadro-resultado" id="resultado-txt">
+        Contenido del QR: <span id="texto-qr"></span>
+    </div>
+
+    <!-- Canvas oculto en memoria para que jsQR analice los píxeles sin saturar la RAM -->
+    <canvas id="canvas-interno" style="display:none;"></canvas>
 
     <script>
         const video = document.getElementById('webcam');
-        const btnCapturar = document.getElementById('btn-capturar');
-        const canvas = document.getElementById('canvas');
+        const canvas = document.getElementById('canvas-interno');
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        const cuadroResultado = document.getElementById('cuadro-resultado');
+        const textoQr = document.getElementById('texto-qr');
 
-        // 1. Activar la cámara automáticamente al cargar
-        async function iniciarCamara() {
+        async function iniciarCamaraPC() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        // "environment" obliga a usar la cámara trasera del celular
-                        facingMode: "environment" 
+                        facingMode: "environment",
+                        // CORRECCIÓN DE RESOLUCIÓN: Forzamos un formato estándar 4:3 (640x480) 
+                        // en lugar de resoluciones panorámicas HD (16:9) que congelan la RAM
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
                     },
                     audio: false
                 });
                 video.srcObject = stream;
+                
+                // Iniciamos el bucle de lectura automática en vivo
+                requestAnimationFrame(escanearCuadro);
             } catch (error) {
-                alert("Error al acceder a la cámara: " + error.message);
+                alert("Error al abrir cámara: " + error.message);
             }
         }
 
-        // 2. Capturar la foto al presionar el botón green
-        btnCapturar.addEventListener('click', () => {
-            const context = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
-            // Dibuja el cuadro actual del video en el canvas
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Convertir la imagen a formato Base64 (puedes mandarla a un servidor o procesarla)
-            const fotoBase64 = canvas.toDataURL('image/jpeg');
-            
-            console.log("Foto capturada con éxito");
-            alert("¡Foto capturada! Ya puedes procesar el escaneo.");
-        });
+        function escanearCuadro() {
+            // Validamos que el video tenga datos reales cargados antes de dibujar
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                
+                // Mantenemos la resolución interna baja (640x480) para un análisis ultra rápido
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Volcamos el cuadro actual del video al canvas oculto
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Extraemos los píxeles puros
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // La librería jsQR analiza los píxeles en tiempo real
+                const codigoIdentificado = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert", // Ahorra procesador omitiendo QR invertidos
+                });
 
-        // Iniciar la cámara al abrir la web
-        window.addEventListener('DOMContentLoaded', iniciarCamara);
+                // Si la librería encuentra un código válido:
+                if (codigoIdentificado) {
+                    console.log("¡QR Detectado!", codigoIdentificado.data);
+                    
+                    // MOSTRAR EL TEXTO EN LA PÁGINA WEB
+                    cuadroResultado.style.display = "block";
+                    textoQr.innerText = codigoIdentificado.data;
+                    
+                    // Detener la cámara inmediatamente para no saturar la memoria
+                    detenerCamara(video.srcObject);
+                    return; // Rompe el bucle de escaneo
+                }
+            }
+            
+            // Si no encuentra nada, sigue analizando el siguiente cuadro en vivo
+            requestAnimationFrame(escanearCuadro);
+        }
+
+        function detenerCamara(stream) {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                console.log("Cámara apagada. Memoria liberada.");
+            }
+        }
+
+        // Arrancar el proceso al abrir la web
+        window.addEventListener('DOMContentLoaded', iniciarCamaraPC);
     </script>
 </body>
 </html>
