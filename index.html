@@ -3,103 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner QR Ultra Rápido</title>
-    <!-- Usamos la librería definitiva optimizada para bajo rendimiento -->
+    <title>Panel Interactivo - Diagnóstico de Cámara</title>
+    <!-- Cargamos la librería base -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #f4f7f6; padding: 20px; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; background: #1e1e24; color: #fff; padding: 15px; margin: 0; }
+        h2 { color: #4dabf7; margin-bottom: 5px; }
         
-        /* Tu contenedor del diseño en formato cuadrado */
+        /* Contenedor del Visor */
         .contenedor-camara { 
-            width: 350px; 
-            height: 350px; 
-            margin: 0 auto; 
-            border: 4px solid #333; 
+            width: 320px; 
+            height: 320px; 
+            margin: 15px auto; 
+            border: 4px dashed #4dabf7; 
             border-radius: 12px;
             overflow: hidden;
             background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* Ajustes para el texto leído */
-        #cuadro-resultado {
-            margin: 20px auto;
-            padding: 15px;
-            width: 90%;
-            max-width: 320px;
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            border-radius: 8px;
-            font-weight: bold;
-            display: none;
-            word-break: break-all;
+        /* Botones Interactivos */
+        .btn-panel { display: flex; flex-direction: column; gap: 10px; max-width: 320px; margin: 0 auto; }
+        button { 
+            padding: 12px; font-size: 14px; font-weight: bold; border: none; 
+            border-radius: 6px; cursor: pointer; color: white; transition: 0.2s;
+        }
+        .btn-blue { background-color: #007bff; }
+        .btn-green { background-color: #28a745; }
+        .btn-red { background-color: #dc3545; }
+        button:active { transform: scale(0.98); }
+
+        /* Consola de estado en pantalla (Ideal para el Celular) */
+        .consola-log {
+            margin: 20px auto; width: 90%; max-width: 320px; height: 120px;
+            background: #111; color: #00ff00; font-family: monospace; font-size: 11px;
+            padding: 10px; text-align: left; overflow-y: scroll; border-radius: 6px;
+            border: 1px solid #333; box-shadow: inset 0 0 5px #000;
+        }
+
+        #resultado-ok {
+            margin: 15px auto; padding: 12px; max-width: 320px;
+            background-color: #2b8a3e; color: white; border-radius: 6px;
+            font-weight: bold; display: none; word-break: break-all;
         }
     </style>
 </head>
 <body>
 
-    <h2>Escaneando Código...</h2>
+    <h2>Consola de Control QR</h2>
+    <p style="font-size: 12px; color: #aaa; margin: 0 0 15px 0;">Entorno seguro: <span id="modo-conexion">Cargando...</span></p>
     
-    <!-- Aquí se inyectará la cámara automáticamente -->
-    <div class="contenedor-camara" id="lector-webcam"></div>
+    <!-- Cuadro de Video -->
+    <div class="contenedor-camara" id="visor-webcam">
+        <span id="placeholder-txt" style="color: #666; font-size: 14px;">Cámara Apagada</span>
+    </div>
 
-    <!-- Muestra del texto final -->
-    <div id="cuadro-resultado">
-        Contenido: <span id="texto-qr"></span>
+    <!-- Resultados -->
+    <div id="resultado-ok">
+        ¡ÉXITO!: <span id="texto-qr"></span>
+    </div>
+
+    <!-- Panel de Botones Interactivos -->
+    <div class="btn-panel">
+        <button class="btn-blue" onclick="detectarCamarasDisponibles()">1️⃣ PASO: Detectar Cámaras y Permisos</button>
+        <button class="btn-green" id="btn-arrancar" onclick="iniciarConResolucionBaja()" disabled>2️⃣ PASO: Encender Cámara (Baja Res)</button>
+        <button class="btn-red" onclick="apagarCamaraForzado()">🛑 Apagar Todo / Limpiar RAM</button>
+    </div>
+
+    <!-- Consola Log en Pantalla -->
+    <div class="consola-log" id="consola">
+        [Sistema listo] Presiona el PASO 1 para iniciar...
     </div>
 
     <script>
-        let html5QrCode;
+        let html5QrCode = null;
+        let camarasEncontradas = [];
+        let camaraSeleccionadaId = null;
 
-        async function iniciarEscaneoProfesional() {
-            // Inicializamos la librería sobre tu DIV de diseño
-            html5QrCode = new Html5Qrcode("lector-webcam");
+        // Comprobación de seguridad inicial
+        window.addEventListener('DOMContentLoaded', () => {
+            const isHttps = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+            const infoConexion = document.getElementById('modo-conexion');
+            if (isHttps) {
+                infoConexion.innerText = "SEGURO (HTTPS/Localhost)";
+                infoConexion.style.color = "#4cac70";
+            } else {
+                infoConexion.innerText = "INSEGURO (HTTP) - Navegadores bloquearán la cámara";
+                infoConexion.style.color = "#ff6b6b";
+            }
+        });
 
-            const config = {
-                fps: 10, // Analiza solo 10 cuadros por segundo para que el celular y la PC vieja vayan ultra fluidos
-                qrbox: function(width, height) {
-                    // Crea un área de enfoque interna para obligar al algoritmo a concentrarse en el centro
-                    return { width: Math.floor(width * 0.7), height: Math.floor(height * 0.7) };
-                },
-                // Forzamos una resolución nativa baja para que el motor matemático no se sature
-                videoConstraints: {
-                    facingMode: "environment",
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
+        // Función para escribir en nuestra pantalla táctil / monitor
+        function agregarLog(mensaje) {
+            const consola = document.getElementById('consola');
+            consola.innerHTML += `<br>> ${mensaje}`;
+            consola.scrollTop = consola.scrollHeight; // Auto-scroll al final
+        }
+
+        // --- BOTÓN 1: DETECTAR DISPOSITIVOS ---
+        async function detectarCamarasDisponibles() {
+            agregarLog("Solicitando permisos y listando cámaras...");
+            try {
+                // Instanciamos el lector en el div
+                html5QrCode = new Html5Qrcode("visor-webcam");
+                
+                // Pedimos las cámaras al sistema operativo
+                camarasEncontradas = await Html5Qrcode.getCameras();
+                
+                if (camarasEncontradas && camarasEncontradas.length > 0) {
+                    agregarLog(`¡Cámaras encontradas: ${camarasEncontradas.length}!`);
+                    
+                    // Elegir por defecto la cámara trasera si existe
+                    camaraSeleccionadaId = camarasEncontradas[0].id;
+                    let nombreCamara = camarasEncontradas[0].label || "Cámara Estándar";
+
+                    for (let i = 0; i < camarasEncontradas.length; i++) {
+                        agregarLog(`Detalle [${i}]: ${camarasEncontradas[i].label}`);
+                        if (camarasEncontradas[i].label.toLowerCase().includes('back') || 
+                            camarasEncontradas[i].label.toLowerCase().includes('trasera')) {
+                            camaraSeleccionadaId = camarasEncontradas[i].id;
+                            nombreCamara = camarasEncontradas[i].label;
+                        }
+                    }
+                    
+                    agregarLog(`Seleccionada para iniciar: ${nombreCamara}`);
+                    // Habilitamos el botón del paso 2
+                    document.getElementById('btn-arrancar').disabled = false;
+                    document.getElementById('placeholder-txt').innerText = "Listo para encender";
+                } else {
+                    agregarLog("ERROR: No se detectaron cámaras físicas.");
                 }
+            } catch (err) {
+                agregarLog(`ERROR DE PERMISO/SISTEMA: ${err.message}`);
+                console.error(err);
+            }
+        }
+
+        // --- BOTÓN 2: ENCENDER CÁMARA CON CONFIGURACIÓN FLEXIBLE ---
+        async function iniciarConResolucionBaja() {
+            if (!camaraSeleccionadaId) return;
+            
+            document.getElementById('placeholder-txt').style.display = "none";
+            agregarLog("Intentando enlazar flujo de video...");
+
+            // Configuración optimizada al máximo para cámaras antiguas y hardware lento
+            const configEscaneo = {
+                fps: 8, // Bajamos a 8 escaneos por segundo para garantizar fluidez
+                qrbox: (w, h) => { return { width: Math.floor(w * 0.75), height: Math.floor(h * 0.75) }; }
             };
 
-            // Arrancamos la cámara trasera (o la webcam por defecto en PC)
-            html5QrCode.start(
-                { facingMode: "environment" },
-                config,
-                onScanSuccess, // Si encuentra el QR
-                onScanFailure  // Si sigue buscando en silencio
-            ).catch(err => {
-                console.error("Error al iniciar el escáner:", err);
-            });
-        }
-
-        function onScanSuccess(decodedText, decodedResult) {
-            // ¡LEÍDO! Detenemos la cámara de inmediato para liberar el 100% de la RAM
-            html5QrCode.stop().then(() => {
-                console.log("Código leído correctamente.");
+            try {
+                // Arrancamos pasándole el ID exacto que obtuvimos en el paso 1
+                await html5QrCode.start(
+                    camaraSeleccionadaId,
+                    configEscaneo,
+                    alDetectarQR,
+                    alFallarCuadro
+                );
                 
-                // Pintamos el resultado en tu HTML
-                document.getElementById("cuadro-resultado").style.display = "block";
-                document.getElementById("texto-qr").innerText = decodedText;
-            }).catch(err => {
-                console.error("Error al detener la cámara:", err);
-            });
+                agregarLog("¡CÁMARA ENCENDIDA EN VIVO! Si se ve negro, revisa la luz o si otra app usa la cámara.");
+            } catch (err) {
+                agregarLog(`FALLO AL RENDERIZAR VIDEO: ${err.message}`);
+                agregarLog("Probando fallback sin ID rígido...");
+                
+                // Intento de rescate si el ID falló (Caso de webcams muy antiguas en PC)
+                try {
+                    await html5QrCode.start({ facingMode: "environment" }, configEscaneo, alDetectarQR, alFallarCuadro);
+                    agregarLog("Enlazado con éxito mediante modo genérico.");
+                } catch (err2) {
+                    agregarLog(`FALLO TOTAL: El hardware de la cámara rechazó el stream web.`);
+                }
+            }
         }
 
-        function onScanFailure(error) {
-            // Deja este bloque vacío para que no genere lag con logs repetitivos
+        // --- DETECCIÓN EXITOSA ---
+        function alDetectarQR(textoDecodificado, resultadoObjeto) {
+            agregarLog(`¡CÓDIGO QR LEÍDO CON ÉXITO!`);
+            
+            // Mostramos resultado en el HTML
+            const cuadroRes = document.getElementById("resultado-ok");
+            cuadroRes.style.display = "block";
+            document.getElementById("texto-qr").innerText = textoDecodificado;
+            
+            // Apagamos para proteger la RAM
+            apagarCamaraForzado();
         }
 
-        // Cargar al iniciar la web
-        window.addEventListener('DOMContentLoaded', iniciarEscaneoProfesional);
+        function alFallarCuadro(errorDeEscaneo) {
+            // Mantenemos la consola limpia de la búsqueda frame a frame para no congelar la pantalla.
+        }
+
+        // --- BOTÓN 3: APAGAR Y LIMPIAR ---
+        async function apagarCamaraForzado() {
+            if (html5QrCode && html5QrCode.isScanning()) {
+                try {
+                    await html5QrCode.stop();
+                    agregarLog("Transmisión cerrada. Memoria RAM liberada.");
+                    document.getElementById('placeholder-txt').style.display = "block";
+                    document.getElementById('placeholder-txt').innerText = "Cámara Apagada";
+                } catch (err) {
+                    agregarLog(`Error al apagar: ${err.message}`);
+                }
+            } else {
+                agregarLog("El escaner ya estaba apagado.");
+            }
+        }
     </script>
 </body>
 </html>
