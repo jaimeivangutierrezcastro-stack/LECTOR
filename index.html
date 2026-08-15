@@ -3,24 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel QR - Integración en VS Code</title>
+    <title>Lector de Barras 1D - Bodega</title>
     
-    <!-- LLAMADA LOCAL ABSOLUTA: Busca el archivo jsQR.js creado en tu VS Code -->
-    <script src="jsQR.js"></script>
+    <!-- Usamos el mismo archivo zxing.js que ya guardaste -->
+    <script src="zxing.js"></script>
     
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; background: #1e1e24; color: #fff; padding: 15px; margin: 0; }
-        h2 { color: #4dabf7; margin-bottom: 5px; }
+        h2 { color: #fcc419; margin-bottom: 5px; } /* Cambiamos a amarillo para diferenciar la app de bodega */
         .contenedor-camara { 
             width: 320px; height: 320px; margin: 15px auto; 
-            border: 4px dashed #4dabf7; border-radius: 12px; 
+            border: 4px dashed #fcc419; border-radius: 12px; 
             overflow: hidden; background: #000; position: relative;
         }
         video { width: 100%; height: 100%; object-fit: cover; }
         .btn-panel { display: flex; flex-direction: column; gap: 10px; max-width: 320px; margin: 0 auto; }
         button { padding: 12px; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; }
         .btn-blue { background-color: #007bff; }
-        .btn-green { background-color: #28a745; }
+        .btn-yellow { background-color: #fcc419; color: #111; }
         .btn-red { background-color: #dc3545; }
         .consola-log { margin: 20px auto; width: 90%; max-width: 320px; height: 120px; background: #111; color: #00ff00; font-family: monospace; font-size: 11px; padding: 10px; text-align: left; overflow-y: scroll; border-radius: 6px; }
         #resultado-ok { margin: 15px auto; padding: 12px; max-width: 320px; background-color: #2b8a3e; color: white; border-radius: 6px; display: none; font-weight: bold; word-break: break-all; }
@@ -28,34 +28,29 @@
 </head>
 <body>
 
-    <h2>Consola QR en Desarrollo</h2>
+    <h2>Consola de Bodega (Códigos 1D)</h2>
     
     <div class="contenedor-camara">
         <video id="webcam" autoplay playsinline style="display:none;"></video>
         <span id="placeholder-txt" style="color: #666; font-size: 14px; position: absolute; top: 45%; left: 25%;">Cámara Apagada</span>
     </div>
 
-    <div id="resultado-ok">¡ÉXITO!: <span id="texto-qr"></span></div>
+    <div id="resultado-ok">¡BARRAS CAPTURADAS!: <span id="texto-barras"></span></div>
 
     <div class="btn-panel">
-        <button class="btn-blue" onclick="verificarCargaVSCode()">1️⃣ PASO: Verificar jsQR Interno</button>
-        <button class="btn-green" id="btn-arrancar" onclick="encenderCamaraVSCode()" disabled>2️⃣ PASO: Encender Cámara</button>
-        <button class="btn-red" onclick="apagarStreamVSCode()">🛑 Apagar Todo</button>
+        <button class="btn-blue" onclick="verificarMotorBarras()">1️⃣ PASO: Verificar Motor</button>
+        <button class="btn-yellow" id="btn-arrancar" onclick="encenderLectorBarras()" disabled>2️⃣ PASO: Escanear Paquete</button>
+        <button class="btn-red" onclick="apagarLectorBarras()">🛑 Apagar Todo</button>
     </div>
 
     <div class="consola-log" id="consola">
-        [Modo VS Code] Presiona el PASO 1...
+        [Entorno 1D listo] Presiona el PASO 1...
     </div>
 
-    <canvas id="canvas-interno" style="display:none;"></canvas>
-
     <script>
-        const video = document.getElementById('webcam');
-        const canvas = document.getElementById('canvas-interno');
-        const context = canvas.getContext('2d', { willReadFrequently: true });
-        
+        const videoElemento = document.getElementById('webcam');
+        let codeReader = null;
         let streamActivo = null;
-        let bucleAnalisis = null;
 
         function agregarLog(msg) {
             const consola = document.getElementById('consola');
@@ -63,104 +58,83 @@
             consola.scrollTop = consola.scrollHeight;
         }
 
-        // --- PASO 1: CONFIRMAR CARGA DE LA LIBRERÍA LOCAL ---
-        function verificarCargaVSCode() {
-            agregarLog("Buscando el archivo local jsQR.js...");
-            
-            if (typeof jsQR !== 'undefined') {
-                agregarLog("¡ÉXITO! La librería se cargó de forma física correctamente.");
+        function hacerSonidoBip() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(650, audioCtx.currentTime); // Un tono ligeramente distinto para barras
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.12);
+            } catch (e) { console.log(e); }
+        }
+
+        function verificarMotorBarras() {
+            if (typeof ZXing !== 'undefined') {
+                agregarLog("¡ÉXITO! Motor listo para decodificar formatos 1D.");
                 document.getElementById('btn-arrancar').disabled = false;
-                document.getElementById('placeholder-txt').innerText = "Listo para transmitir";
+                document.getElementById('placeholder-txt').innerText = "Listo para escanear etiquetas";
             } else {
-                agregarLog("ERROR: No se encuentra 'jsQR.js'. Confirma que creaste el archivo en la misma carpeta que el HTML en tu VS Code.");
+                agregarLog("ERROR: Asegúrate de que el archivo zxing.js esté en la misma carpeta.");
             }
         }
 
-        // --- PASO 2: FORZAR STREAM DE VIDEO (Protección de RAM) ---
-        async function encenderCamaraVSCode() {
-            agregarLog("Iniciando transmisión de video local...");
+        async function encenderLectorBarras() {
+            agregarLog("Activando cámara para códigos alargados...");
             document.getElementById('placeholder-txt').style.display = "none";
-            video.style.display = "block";
+            videoElemento.style.display = "block";
 
             try {
-                // Parámetros tolerantes de resolución
+                codeReader = new ZXing.BrowserMultiFormatReader();
+
                 streamActivo = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
+                    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                    // Subimos la resolución a 720p porque las barras 1D de los paquetes necesitan más definición lineal que un QR
                     audio: false
                 });
                 
-                video.srcObject = streamActivo;
-                agregarLog("¡Video en vivo activado! Analizando QR...");
-                
-                // Intervalo controlado a 200ms para evitar congelamientos de memoria
-                bucleAnalisis = setInterval(procesarFrameVSCode, 200); 
-            } catch (err) {
-                agregarLog(`ERROR DE ACCESO: ${err.name} - Da permisos de cámara al sitio.`);
-            }
-        }
+                videoElemento.srcObject = streamActivo;
+                agregarLog("Buscando códigos de barra (Code 128 / EAN / ITF)...");
 
-        // --- MOTOR DE ANÁLISIS ---
-        function procesarFrameVSCode() {
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
+                // --- MAPEO TÉCNICO EXCLUSIVO PARA CÓDIGOS DE BARRA (1D) ---
+                // Le decimos a ZXing que ignore los QR y concentre el 100% de su procesador en leer líneas tradicionales
+                const formatosBarras = [
+                    ZXing.BarcodeFormat.CODE_128,  // El formato logístico más común en etiquetas
+                    ZXing.BarcodeFormat.EAN_13,    // Códigos de productos comerciales
+                    ZXing.BarcodeFormat.CODE_39,   // Códigos industriales
+                    ZXing.BarcodeFormat.ITF        // Códigos de cajas de cartón corrugado
+                ];
                 
-                // Filtro rápido por tarjeta gráfica para no estresar al procesador
-                context.filter = "brightness(95%) contrast(140%)";
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                const codigo = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert"
+                codeReader.hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS, formatosBarras]]);
+
+                codeReader.decodeFromVideoElement(videoElemento, (resultado, error) => {
+                    if (resultado) {
+                        hacerSonidoBip();
+                        agregarLog(`¡CÓDIGO DE BARRAS LEÍDO!: ${resultado.text}`);
+                        
+                        document.getElementById("resultado-ok").style.display = "block";
+                        document.getElementById("texto-barras").innerText = resultado.text;
+                        
+                        apagarLectorBarras();
+                    }
                 });
 
-                if (codigo) {
-                    hacerSonidoBip();
-                    agregarLog("¡CÓDIGO QR ESCANEADO!");
-                    document.getElementById("resultado-ok").style.display = "block";
-                    document.getElementById("texto-qr").innerText = codigo.data;
-                    apagarStreamVSCode();
-                }
+            } catch (err) {
+                agregarLog(`ERROR: ${err.message}`);
             }
         }
 
-        // --- PASO 3: LIMPIEZA TOTAL ---
-        function apagarStreamVSCode() {
-            clearInterval(bucleAnalisis);
-            if (streamActivo) {
-                streamActivo.getTracks().forEach(track => track.stop());
-                agregarLog("Cámara web liberada. Memoria RAM vaciada.");
-            }
-            video.style.display = "none";
+        function apagarLectorBarras() {
+            if (codeReader) codeReader.reset();
+            if (streamActivo) streamActivo.getTracks().forEach(track => track.stop());
+            videoElemento.style.display = "none";
             document.getElementById('placeholder-txt').style.display = "block";
             document.getElementById('placeholder-txt').innerText = "Cámara Apagada";
         }
-
-    function hacerSonidoBip() {
-    try {
-        // Creamos el contexto de audio nativo del sistema
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        oscillator.type = 'sine'; // Tono senoidal puro
-        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime); // Frecuencia en Hz (tono agudo)
-        
-        // Control de volumen para que no sature
-        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); 
-
-        // Duración del pitido
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.15); // 0.15 segundos de duración
-    } catch (e) {
-        console.log("El audio fue bloqueado o no está soportado:", e);
-    }
-}
-
-    
     </script>
 </body>
 </html>
