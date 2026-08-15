@@ -56,15 +56,6 @@
     // REEMPLAZA ESTA URL por la que te entregó Google Apps Script en el Método 2
     const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbwZEf8kmBMRgjvdcImNUb0mxxOfjauw6XKCcFKbs_mRxT3HIL5GYuru-WhF_z91NXbh_Q/exec";
 
-        fetch(URL_GOOGLE_SCRIPT, {
-            method: "POST",
-          //  mode: "cors",
-            credentials: "include", // Requerido para la autenticación del Método 2
-            body: JSON.stringify({ codigo: "textoEscaneado" }),
-            headers: { "Content-Type": "text/plain" }
-        })
-    
-
     let escaneando = true;
     const label = document.getElementById("label-estado");
 
