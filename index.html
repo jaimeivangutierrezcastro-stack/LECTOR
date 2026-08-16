@@ -227,7 +227,7 @@ async function encenderCamaraBodega() {
             alert("Acceso a la cámara trasera denegado o no disponible.");
             modal.style.display = "none";
         }
-    }, 150); // 150 milisegundos de espera para limpiar el teclado de la pantalla
+    }, 350); // 150 milisegundos de espera para limpiar el teclado de la pantalla
 }
 
     
@@ -306,7 +306,7 @@ function procesarLectura(evento) {
             const minsRestantes = (MINUTOS_RESTRICCION_DUPLICADO - diferenciaMinutos).toFixed(1);
             alert(`¡PRODUCTO DUPLICADO!\n\nLa serie [${serieExtraida}] ya fue registrada hace ${diferenciaMinutos.toFixed(1)} minutos.\nEspere ${minsRestantes} minutos para repetir.`);
             input.value = "";
-            input.focus();
+     //       input.focus();
             return;
         }
     }
@@ -336,7 +336,7 @@ function procesarLectura(evento) {
     actualizarTablaVista();
     enviarAGoogleSheets(nuevoRegistro);
     input.value = "";
-    input.focus();
+   // input.focus();
 }
 
 function solicitarAnulacion(idRegistro) {
