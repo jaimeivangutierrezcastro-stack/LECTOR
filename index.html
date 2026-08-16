@@ -181,6 +181,10 @@ function sincronizarMotorHardware() {
 // 4. NUEVA FUNCIÓN: TRANSMISIÓN DE VIDEO CON RESOLUCIÓN EN BODEGA
 async function encenderCamaraBodega() {
     // Si no existe la interfaz del visor en el HTML, la inyectamos dinámicamente en un modal flotante
+    const inputReal = document.getElementById('txt-lector');
+    if (inputReal) {
+        inputReal.blur(); 
+    }
     let modal = document.getElementById('modal-escaner');
     if (!modal) {
         modal = document.createElement('div');
