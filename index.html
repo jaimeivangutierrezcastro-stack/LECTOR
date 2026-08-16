@@ -80,7 +80,7 @@
             } catch (e) { console.log(e); }
         }
 
-        // --- PASO 1: SINCRONIZAR FORMATOS 1D ---
+        // --- PASO 1: SINCRONIZAR FORMATOS 1D y QR ---
         function verificarCompatibilidadSistema() {
             agregarLog("Buscando aceleradores de hardware en el dispositivo...");
             
@@ -89,7 +89,7 @@
                 
                 // Mapeamos los formatos logísticos que usan tus paquetes
                 detectorNativo = new BarcodeDetector({ 
-                    formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'itf'] 
+                    formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'itf', 'qr_code'] 
                 });
                 
                 document.getElementById('btn-arrancar').disabled = false;
