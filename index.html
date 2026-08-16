@@ -83,63 +83,81 @@
             }
         }
 
-        async function encenderLectorBarras() {
-    agregarLog("Activando cámara para códigos alargados...");
+async function encenderLectorBarras() {
+    agregarLog("Activando cámara para celulares de alta resolución...");
     document.getElementById('placeholder-txt').style.display = "none";
     videoElemento.style.display = "block";
 
+    // APLICAMOS NITIDEZ DIGITAL POR TARJETA GRÁFICA (GPU)
+    // Este filtro realza los bordes de las líneas del código de barras en el celular
+    videoElemento.style.filter = "contrast(180%) brightness(95%) sharp(100%)";
+
     try {
-        // Instanciamos el lector base
         codeReader = new ZXing.BrowserMultiFormatReader();
 
-        // 1. CREACIÓN DE HINTS DE ALTO RENDIMIENTO PARA EAN-13
+        // 1. CONFIGURACIÓN DE HINTS DE BODEGA PROFUNDA
         const hints = new Map();
-        
-        // Indicamos los formatos específicos de barra a buscar
         const formatosBarras = [
             ZXing.BarcodeFormat.EAN_13,
             ZXing.BarcodeFormat.EAN_8,
-            ZXing.BarcodeFormat.CODE_128 // Mantenemos el estándar logístico
+            ZXing.BarcodeFormat.CODE_128,
+            ZXing.BarcodeFormat.CODE_39
         ];
         hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formatosBarras);
-
-        // 🚀 EL CAMBIO CLAVE: Activamos "TRY_HARDER" 
-        // Esto le dice al procesador que gaste más recursos en calcular líneas delgadas y borrosas
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-
-        // Inyectamos las propiedades al motor analítico antes del stream
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true); // Análisis microscópico activo
+        
         codeReader.hints = hints;
 
-        // 2. SOLICITUD DE VIDEO EQUILIBRADA
-        // Nota: Si la cámara es el "artilugio" antiguo de PC, 1280x720 puede ser una resolución irreal 
-        // y el sistema la deforma. Usamos un formato estándar estable:
-        streamActivo = await navigator.mediaDevices.getUserMedia({
+        // 2. DETALLE CLAVE: Aumentar la resolución de muestreo en el celular
+        // Forzamos Full HD (1920x1080). Al tener más píxeles en vertical, 
+        // el algoritmo detecta las líneas más finas del EAN-13 sin confundirlas.
+        const restriccionesCelular = {
             video: { 
-                facingMode: "environment", 
-                width: { ideal: 1280 }, 
-                height: { ideal: 720 } 
+                facingMode: "environment", // Obliga a usar la cámara trasera
+                width: { ideal: 1920 }, 
+                height: { ideal: 1080 } 
             }, 
             audio: false
-        });
-        
-        videoElemento.srcObject = streamActivo;
-        agregarLog("Modo de escaneo profundo EAN-13 Activado.");
+        };
 
-        // Ejecutar lectura continua
+        streamActivo = await navigator.mediaDevices.getUserMedia(restriccionesCelular);
+        videoElemento.srcObject = streamActivo;
+        agregarLog("Muestreo en Alta Definición y Modo Profundo Activo.");
+
+        // Ejecutar lectura continua nativa
         codeReader.decodeFromVideoElement(videoElemento, (resultado, error) => {
             if (resultado) {
                 hacerSonidoBip();
-                agregarLog(`¡CÓDIGO CAPTURADO!: ${resultado.text}`);
+                agregarLog(`¡CÓDIGO DE BARRAS LEÍDO!: ${resultado.text}`);
                 
                 document.getElementById("resultado-ok").style.display = "block";
                 document.getElementById("texto-barras").innerText = resultado.text;
                 
+                // Deja el código listo en tu input de la pantalla compleja
+                const inputReal = document.querySelector('input[placeholder*="Ingrese o escanee"]');
+                if (inputReal) {
+                    inputReal.value = resultado.text;
+                    inputReal.focus();
+                }
+
                 apagarLectorBarras();
             }
+            // Mantenemos los errores en silencio para no generar saltos de procesamiento
         });
 
     } catch (err) {
         agregarLog(`ERROR: ${err.message}`);
+        agregarLog("Probando resolución estándar por fallo de hardware...");
+        
+        // Fallback rápido si el celular es muy antiguo y no soporta Full HD
+        try {
+            streamActivo = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+            videoElemento.srcObject = streamActivo;
+        } catch(e) {
+            agregarLog("Fallo total de enlace de video.");
+        }
     }
 }
 
