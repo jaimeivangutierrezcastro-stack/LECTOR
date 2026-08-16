@@ -137,6 +137,10 @@ let detectorNativoBodega = null;
 window.onload = function() {
     actualizarTablaVista();
     sincronizarMotorHardware(); // Inicializa el detector al cargar
+
+       // Foco manual controlado SOLO al iniciar la app
+    const input = document.getElementById('txt-lector');
+    if (input) input.focus();
 };
 
 function cambiarSeleccion(botonPresionado, propiedad) {
@@ -145,7 +149,7 @@ function cambiarSeleccion(botonPresionado, propiedad) {
     botonesDelGrupo.forEach(btn => btn.classList.remove('activo'));
     botonPresionado.classList.add('activo');
     configuracionActual[propiedad] = botonPresionado.innerText;
-    document.getElementById('txt-lector').focus();
+//    document.getElementById('txt-lector').focus();
 }
 
 // 2. NUEVA FUNCIÓN: CONFIRMACIÓN ACÚSTICA INDUSTRIAL (750 Hz)
