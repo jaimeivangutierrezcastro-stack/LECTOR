@@ -3,20 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lector de Barras 1D - Bodega</title>
-    
-    <!-- Usamos el mismo archivo zxing.js que ya guardaste -->
-    <script src="zxing.js"></script>
-    
+    <title>Consola Logística - Lector 1D Alta Velocidad</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; background: #1e1e24; color: #fff; padding: 15px; margin: 0; }
-        h2 { color: #fcc419; margin-bottom: 5px; } /* Cambiamos a amarillo para diferenciar la app de bodega */
+        h2 { color: #fcc419; margin-bottom: 5px; }
         .contenedor-camara { 
             width: 320px; height: 320px; margin: 15px auto; 
             border: 4px dashed #fcc419; border-radius: 12px; 
             overflow: hidden; background: #000; position: relative;
         }
-        video { width: 100%; height: 100%; object-fit: cover; }
+        video { width: 100%; height: 100%; object-fit: cover; display: none; }
+        
+        /* Línea guía roja industrial para ayudar al operador a apuntar */
+        .linea-guia {
+            position: absolute; top: 50%; left: 10%; width: 80%; height: 2px;
+            background: rgba(255, 0, 0, 0.7); box-shadow: 0 0 4px #ff0000;
+            display: none; pointer-events: none; z-index: 10;
+        }
+
         .btn-panel { display: flex; flex-direction: column; gap: 10px; max-width: 320px; margin: 0 auto; }
         button { padding: 12px; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; }
         .btn-blue { background-color: #007bff; }
@@ -28,29 +32,32 @@
 </head>
 <body>
 
-    <h2>Consola de Bodega (Códigos 1D)</h2>
+    <h2>Consola de Bodega (Formatos 1D)</h2>
     
     <div class="contenedor-camara">
-        <video id="webcam" autoplay playsinline style="display:none;"></video>
-        <span id="placeholder-txt" style="color: #666; font-size: 14px; position: absolute; top: 45%; left: 25%;">Cámara Apagada</span>
+        <video id="webcam" autoplay playsinline></video>
+        <div class="linea-guia" id="laser-rojo"></div>
+        <span id="placeholder-txt" style="color: #666; font-size: 14px;">Lector Apagado</span>
     </div>
 
-    <div id="resultado-ok">¡BARRAS CAPTURADAS!: <span id="texto-barras"></span></div>
+    <div id="resultado-ok">¡CÓDIGO CAPTURADO!: <span id="texto-barras"></span></div>
 
     <div class="btn-panel">
-        <button class="btn-blue" onclick="verificarMotorBarras()">1️⃣ PASO: Verificar Motor</button>
-        <button class="btn-yellow" id="btn-arrancar" onclick="encenderLectorBarras()" disabled>2️⃣ PASO: Escanear Paquete</button>
-        <button class="btn-red" onclick="apagarLectorBarras()">🛑 Apagar Todo</button>
+        <button class="btn-blue" onclick="verificarCompatibilidadSistema()">1️⃣ PASO: Sincronizar Motor</button>
+        <button class="btn-yellow" id="btn-arrancar" onclick="encenderCamaraBodega()" disabled>2️⃣ PASO: Escanear Paquete</button>
+        <button class="btn-red" onclick="apagarTodoBodega()">🛑 Apagar Todo</button>
     </div>
 
     <div class="consola-log" id="consola">
-        [Entorno 1D listo] Presiona el PASO 1...
+        [Sistema Autónomo listo] Presiona el PASO 1...
     </div>
 
     <script>
-        const videoElemento = document.getElementById('webcam');
-        let codeReader = null;
+        const video = document.getElementById('webcam');
+        const laser = document.getElementById('laser-rojo');
         let streamActivo = null;
+        let bucleEscaneo = null;
+        let detectorNativo = null;
 
         function agregarLog(msg) {
             const consola = document.getElementById('consola');
@@ -58,7 +65,7 @@
             consola.scrollTop = consola.scrollHeight;
         }
 
-        function hacerSonidoBip() {
+        function sonarBipBodega() {
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioCtx.createOscillator();
@@ -66,107 +73,102 @@
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(750, audioCtx.currentTime); // Un tono ligeramente distinto para barras
+                oscillator.frequency.setValueAtTime(650, audioCtx.currentTime); 
                 gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
                 oscillator.start();
                 oscillator.stop(audioCtx.currentTime + 0.12);
             } catch (e) { console.log(e); }
         }
 
-        function verificarMotorBarras() {
-            if (typeof ZXing !== 'undefined') {
-                agregarLog("¡ÉXITO! Motor listo para decodificar formatos 1D.");
+        // --- PASO 1: SINCRONIZAR FORMATOS 1D ---
+        function verificarCompatibilidadSistema() {
+            agregarLog("Buscando aceleradores de hardware en el dispositivo...");
+            
+            if ('BarcodeDetector' in window) {
+                agregarLog("¡Éxito! Motor nativo 360° disponible en el sistema.");
+                
+                // Mapeamos los formatos logísticos que usan tus paquetes
+                detectorNativo = new BarcodeDetector({ 
+                    formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'itf'] 
+                });
+                
                 document.getElementById('btn-arrancar').disabled = false;
-                document.getElementById('placeholder-txt').innerText = "Listo para escanear etiquetas";
+                document.getElementById('placeholder-txt').innerText = "Listo para apuntar";
             } else {
-                agregarLog("ERROR: Asegúrate de que el archivo zxing.js esté en la misma carpeta.");
+                agregarLog("Aviso: El navegador no posee detector nativo.");
+                agregarLog("Sugerencia: Para máxima velocidad en bodega, abre este GitHub Pages en un celular Android con Google Chrome actualizado.");
             }
         }
 
-async function encenderLectorBarras() {
-    agregarLog("Activando cámara para celulares de alta resolución...");
-    document.getElementById('placeholder-txt').style.display = "none";
-    videoElemento.style.display = "block";
+        // --- PASO 2: ENCENDER CÁMARA Y MAPEAR EAN-13 ---
+        async function encenderCamaraBodega() {
+            agregarLog("Abriendo cámara en alta definición...");
+            document.getElementById('placeholder-txt').style.display = "none";
+            video.style.display = "block";
+            laser.style.display = "block"; // Encendemos la línea roja guía
 
-    // APLICAMOS NITIDEZ DIGITAL POR TARJETA GRÁFICA (GPU)
-    // Este filtro realza los bordes de las líneas del código de barras en el celular
-    videoElemento.style.filter = "contrast(180%) brightness(95%) sharp(100%)";
-
-    try {
-        codeReader = new ZXing.BrowserMultiFormatReader();
-
-        // 1. CONFIGURACIÓN DE HINTS DE BODEGA PROFUNDA
-        const hints = new Map();
-        const formatosBarras = [
-            ZXing.BarcodeFormat.EAN_13,
-            ZXing.BarcodeFormat.EAN_8,
-            ZXing.BarcodeFormat.CODE_128,
-            ZXing.BarcodeFormat.CODE_39
-        ];
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formatosBarras);
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true); // Análisis microscópico activo
-        
-        codeReader.hints = hints;
-
-        // 2. DETALLE CLAVE: Aumentar la resolución de muestreo en el celular
-        // Forzamos Full HD (1920x1080). Al tener más píxeles en vertical, 
-        // el algoritmo detecta las líneas más finas del EAN-13 sin confundirlas.
-        const restriccionesCelular = {
-            video: { 
-                facingMode: "environment", // Obliga a usar la cámara trasera
-                width: { ideal: 1920 }, 
-                height: { ideal: 1080 } 
-            }, 
-            audio: false
-        };
-
-        streamActivo = await navigator.mediaDevices.getUserMedia(restriccionesCelular);
-        videoElemento.srcObject = streamActivo;
-        agregarLog("Muestreo en Alta Definición y Modo Profundo Activo.");
-
-        // Ejecutar lectura continua nativa
-        codeReader.decodeFromVideoElement(videoElemento, (resultado, error) => {
-            if (resultado) {
-                hacerSonidoBip();
-                agregarLog(`¡CÓDIGO DE BARRAS LEÍDO!: ${resultado.text}`);
+            try {
+                // Solicitamos resolución HD para capturar líneas delgadas fácilmente
+                streamActivo = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false
+                });
                 
-                document.getElementById("resultado-ok").style.display = "block";
-                document.getElementById("texto-barras").innerText = resultado.text;
-                
-                // Deja el código listo en tu input de la pantalla compleja
-                const inputReal = document.querySelector('input[placeholder*="Ingrese o escanee"]');
-                if (inputReal) {
-                    inputReal.value = resultado.text;
-                    inputReal.focus();
+                video.srcObject = streamActivo;
+                agregarLog("¡Video en vivo! Apunte la línea roja al código...");
+
+                // Muestreo ultra veloz: Evaluamos 6 veces por segundo (cada 160ms) sin sobrecargar la RAM
+                bucleEscaneo = setInterval(analizarBarrasNativo, 160);
+            } catch (err) {
+                agregarLog(`ERROR: ${err.message}`);
+            }
+        }
+
+        // --- PROCESAMIENTO NATIVO 360 GRADOS ---
+        async function analizarBarrasNativo() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA && detectorNativo) {
+                try {
+                    // El motor del sistema operativo escanea el video directamente por GPU
+                    const codigos = await detectorNativo.detect(video);
+                    
+                    if (codigos.length > 0) {
+                        const codigoFinal = codigos[0];
+                        
+                        // 1. Confirmación de bodega
+                        sonarBipBodega();
+                        agregarLog(`¡CAPTURADO CON ÉXITO [${codigoFinal.format.toUpperCase()}]: ${codigoFinal.rawValue}`);
+                        
+                        // 2. Pintar resultado
+                        document.getElementById("resultado-ok").style.display = "block";
+                        document.getElementById("texto-barras").innerText = codigoFinal.rawValue;
+                        
+                        // 3. Inyección automática en tu entrada de texto real
+                        const inputReal = document.querySelector('input[placeholder*="Ingrese o escanee"]');
+                        if (inputReal) {
+                            inputReal.value = codigoFinal.rawValue;
+                            inputReal.focus();
+                        }
+
+                        // 4. Apagar inmediatamente para proteger la memoria
+                        apagarTodoBodega();
+                    }
+                } catch (e) {
+                    // Mantenemos silenciosos los fallos frame a frame
                 }
-
-                apagarLectorBarras();
             }
-            // Mantenemos los errores en silencio para no generar saltos de procesamiento
-        });
-
-    } catch (err) {
-        agregarLog(`ERROR: ${err.message}`);
-        agregarLog("Probando resolución estándar por fallo de hardware...");
-        
-        // Fallback rápido si el celular es muy antiguo y no soporta Full HD
-        try {
-            streamActivo = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
-            });
-            videoElemento.srcObject = streamActivo;
-        } catch(e) {
-            agregarLog("Fallo total de enlace de video.");
         }
-    }
-}
 
-        function apagarLectorBarras() {
-            if (codeReader) codeReader.reset();
-            if (streamActivo) streamActivo.getTracks().forEach(track => track.stop());
-            videoElemento.style.display = "none";
+        // --- PASO 3: LIMPIEZA ABSOLUTA DE MEMORIA ---
+        function apagarTodoBodega() {
+            clearInterval(bucleEscaneo);
+            if (streamActivo) {
+                streamActivo.getTracks().forEach(track => track.stop());
+                agregarLog("Cámara cerrada. Memoria RAM vaciada.");
+            }
+            video.style.display = "none";
+            laser.style.display = "none";
             document.getElementById('placeholder-txt').style.display = "block";
-            document.getElementById('placeholder-txt').innerText = "Cámara Apagada";
+            document.getElementById('placeholder-txt').innerText = "Lector Apagado";
         }
     </script>
 </body>
