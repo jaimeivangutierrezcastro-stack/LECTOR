@@ -251,7 +251,7 @@ async function analizarCuadroEnVivo() {
     }
 }
 
-// 6. NUEVA FUNCIÓN: APAGADO Y DESCONEXIÓN FÍSICA PARA EVITAR LA FALTA DE MEMORIA
+// 6. NUEVA FUNCIÓN: APAGADO Y CONTROL DE FOCO POS-ESCANEO
 function apagarCamaraBodega() {
     clearInterval(bucleEscaneo);
     if (streamActivoBodega) {
@@ -259,8 +259,22 @@ function apagarCamaraBodega() {
     }
     const modal = document.getElementById('modal-escaner');
     if (modal) modal.style.display = "none";
-    document.getElementById('txt-lector').focus();
+    
+    // 🚀 EL TRUCO DE FOCO INDUSTRIAL:
+    // En lugar de hacer focus() en la caja de texto (lo que levantaría el teclado),
+    // buscamos el primer botón de "Anular" disponible en tu tabla azul.
+    const primerBotonAnular = document.querySelector('.btn-anular');
+    
+    if (primerBotonAnular) {
+        primerBotonAnular.focus(); // El foco se queda atrapado en el botón sin abrir el teclado
+        console.log("Teclado abajo. Foco posicionado en el botón Anular.");
+    } else {
+        // Fallback: Si la tabla está vacía y no hay botones, simplemente le quitamos 
+        // el foco a toda la página para asegurar que el teclado no se levante.
+        document.activeElement.blur();
+    }
 }
+
 
 // --- TU LÓGICA DE NEGOCIO ORIGINAL INTEGRADA SINTÁCTICAMENTE ---
 function procesarLectura(evento) {
