@@ -82,10 +82,11 @@
     </div>
 
     <!-- CUADRO DE LECTURA -->
-    <div class="franja-lector">
-        <label for="txt-lector">LECTURA DE QR:</label>
-        <input type="text" id="txt-lector" class="input-qr" placeholder="Escanee aquí..." autofocus onkeypress="procesarLectura(event)">
-    </div>
+    <!-- Modificación en tu franja-lector: Quitamos el autofocus rígido -->
+<div class="franja-lector">
+    <label for="txt-lector">LECTURA DE QR:</label>
+    <input type="text" id="txt-lector" class="input-qr" placeholder="Escanee aquí..." onkeypress="procesarLectura(event)">
+</div>
 
     <!-- TABLA DE HISTORIAL RESPONSIVA -->
     <div class="panel-inferior">
