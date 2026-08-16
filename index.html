@@ -6,7 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estación de Registro de Inventario</title>
+    <title>Registro de Bodega S</title>
     <style>
         /* Ajustes de diseño adaptables (Mobile-First) */
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background-color: #f0f2f5; }
@@ -52,16 +52,16 @@
 <body>
 
 <div class="contenedor">
-    <h2>Registro de Bodega Activo</h2>
+    <h2>Registro de Bodega S</h2>
 
     <!-- FILAS DE BOTONES ADAPTABLES -->
     <div class="franja-botones">
         <div class="fila-botones">
             <label>Origen (Col B):</label>
             <div class="grupo">
-                <button class="btn-opcion activo" onclick="cambiarSeleccion(this, 'origen')">D05</button>
-                <button class="btn-opcion" onclick="cambiarSeleccion(this, 'origen')">D02</button>
-                <button class="btn-opcion" onclick="cambiarSeleccion(this, 'origen')">BX</button>
+                <button class="btn-opcion activo" onclick="cambiarSeleccion(this, 'origen')">D-05</button>
+                <button class="btn-opcion" onclick="cambiarSeleccion(this, 'origen')">D-02</button>
+                <button class="btn-opcion" onclick="cambiarSeleccion(this, 'origen')">B-X</button>
             </div>
         </div>
         <div class="fila-botones">
@@ -75,15 +75,15 @@
         <div class="fila-botones">
             <label>Destino (Col H):</label>
             <div class="grupo">
-                <button class="btn-opcion activo" onclick="cambiarSeleccion(this, 'destino')">B01</button>
-                <button class="btn-opcion" onclick="cambiarSeleccion(this, 'destino')">B07</button>
+                <button class="btn-opcion activo" onclick="cambiarSeleccion(this, 'destino')">B-01</button>
+                <button class="btn-opcion" onclick="cambiarSeleccion(this, 'destino')">B-07</button>
             </div>
         </div>
     </div>
 
     <!-- CUADRO DE LECTURA -->
     <div class="franja-lector">
-        <label for="txt-lector">LECTURA DE PRODUCTO QR:</label>
+        <label for="txt-lector">LECTURA DE QR:</label>
         <input type="text" id="txt-lector" class="input-qr" placeholder="Escanee aquí..." autofocus onkeypress="procesarLectura(event)">
     </div>
 
@@ -180,49 +180,52 @@ function sincronizarMotorHardware() {
 
     
 // 4. NUEVA FUNCIÓN: TRANSMISIÓN DE VIDEO CON RESOLUCIÓN EN BODEGA
-// 4. NUEVA FUNCIÓN: TRANSMISIÓN DE VIDEO CON RESOLUCIÓN EN BODEGA
+
+// 4. NUEVA FUNCIÓN: TRANSMISIÓN DE VIDEO CON RESOLUCIÓN EN BODEGA (CORREGIDA)
 async function encenderCamaraBodega() {
-    // Escondemos el teclado del celular inmediatamente
+    // 1. Escondemos el teclado de forma forzada
     const inputReal = document.getElementById('txt-lector');
     if (inputReal) {
         inputReal.blur();
     }
 
-    // Si no existe la interfaz del visor en el HTML, la inyectamos dinámicamente en un modal flotante
+    // 2. Si no existe la interfaz del visor en el HTML, la inyectamos dinámicamente
     let modal = document.getElementById('modal-escaner');
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'modal-escaner';
-        modal.style = "display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; flex-direction:column;";
+        // AJUSTE: Cambiamos center por flex-start y agregamos padding-top para SUBIR la imagen de la cámara
+        modal.style = "display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:flex-start; padding-top:40px; flex-direction:column;";
         modal.innerHTML = `
             <div style="width:300px; height:300px; border:4px dashed #0d6efd; border-radius:12px; overflow:hidden; background:#000; position:relative;">
                 <video id="video-bodega-stream" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
                 <div id="laser-guia" style="position:absolute; top:50%; left:10%; width:80%; height:2px; background:rgba(255,0,0,0.7); box-shadow:0 0 4px #ff0000; pointer-events:none; z-index:10;"></div>
             </div>
-            <button onclick="apagarCamaraBodega()" style="margin-top:15px; padding:12px 25px; background:#dc3545; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">❌ Cancelar Escaneo</button>
+            <button onclick="apagarCamaraBodega()" style="margin-top:20px; padding:12px 25px; background:#dc3545; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">❌ Cancelar Escaneo</button>
         `;
         document.body.appendChild(modal);
     }
 
-    // 🚀 AQUÍ EMPIEZA LO QUE FALTABA (A partir de tu línea 201):
-    modal.style.display = "flex"; // Hace visible el cuadro azul con el láser
-    const video = document.getElementById('video-bodega-stream');
+    // 3. RETRASO CRÍTICO: Esperamos 150ms a que el teclado baje antes de renderizar la cámara
+    setTimeout(async () => {
+        modal.style.display = "flex"; 
+        const video = document.getElementById('video-bodega-stream');
 
-    try {
-        // Enciende el hardware de la cámara trasera a 720p
-        streamActivoBodega = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: false
-        });
-        video.srcObject = streamActivoBodega;
-        
-        // Inicia el bucle que analiza las barras y los QR cada 160 milisegundos
-        bucleEscaneo = setInterval(analizarCuadroEnVivo, 160); 
-    } catch (err) {
-        alert("Acceso a la cámara trasera denegado o no disponible.");
-        modal.style.display = "none";
-    }
-} // Cierre definitivo de la función encenderCamaraBodega
+        try {
+            streamActivoBodega = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: false
+            });
+            video.srcObject = streamActivoBodega;
+            bucleEscaneo = setInterval(analizarCuadroEnVivo, 160); 
+        } catch (err) {
+            alert("Acceso a la cámara trasera denegado o no disponible.");
+            modal.style.display = "none";
+        }
+    }, 150); // 150 milisegundos de espera para limpiar el teclado de la pantalla
+}
+
+    
 
 
 // 5. NUEVA FUNCIÓN: ANÁLISIS ACELERADO POR GPU (Filtra, Inyecta y ejecuta Enter)
