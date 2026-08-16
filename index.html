@@ -178,13 +178,17 @@ function sincronizarMotorHardware() {
     }
 }
 
+    
+// 4. NUEVA FUNCIÓN: TRANSMISIÓN DE VIDEO CON RESOLUCIÓN EN BODEGA
 // 4. NUEVA FUNCIÓN: TRANSMISIÓN DE VIDEO CON RESOLUCIÓN EN BODEGA
 async function encenderCamaraBodega() {
-    // Si no existe la interfaz del visor en el HTML, la inyectamos dinámicamente en un modal flotante
+    // Escondemos el teclado del celular inmediatamente
     const inputReal = document.getElementById('txt-lector');
     if (inputReal) {
-        inputReal.blur(); 
+        inputReal.blur();
     }
+
+    // Si no existe la interfaz del visor en el HTML, la inyectamos dinámicamente en un modal flotante
     let modal = document.getElementById('modal-escaner');
     if (!modal) {
         modal = document.createElement('div');
@@ -200,21 +204,26 @@ async function encenderCamaraBodega() {
         document.body.appendChild(modal);
     }
 
-    modal.style.display = "flex";
+    // 🚀 AQUÍ EMPIEZA LO QUE FALTABA (A partir de tu línea 201):
+    modal.style.display = "flex"; // Hace visible el cuadro azul con el láser
     const video = document.getElementById('video-bodega-stream');
 
     try {
+        // Enciende el hardware de la cámara trasera a 720p
         streamActivoBodega = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
             audio: false
         });
         video.srcObject = streamActivoBodega;
-        bucleEscaneo = setInterval(analizarCuadroEnVivo, 160); // Muestreo controlado anticongelamiento de RAM
+        
+        // Inicia el bucle que analiza las barras y los QR cada 160 milisegundos
+        bucleEscaneo = setInterval(analizarCuadroEnVivo, 160); 
     } catch (err) {
         alert("Acceso a la cámara trasera denegado o no disponible.");
         modal.style.display = "none";
     }
-}
+} // Cierre definitivo de la función encenderCamaraBodega
+
 
 // 5. NUEVA FUNCIÓN: ANÁLISIS ACELERADO POR GPU (Filtra, Inyecta y ejecuta Enter)
 async function analizarCuadroEnVivo() {
