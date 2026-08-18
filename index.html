@@ -99,7 +99,7 @@
     <!-- Modificación en tu franja-lector: Quitamos el autofocus rígido -->
 <div class="franja-lector">
     <label for="txt-lector">LECTURA DE QR:</label>
-    <input type="text" id="txt-lector" class="input-qr" placeholder="Escanee aquí..." onkeypress="procesarLectura(event)">
+    <input type="text" id="txt-lector" class="input-qr" placeholder="Digite aquí..." onkeypress="procesarLectura(event)">
 </div>
 
     <!-- TABLA DE HISTORIAL RESPONSIVA -->
@@ -189,7 +189,7 @@ function sincronizarMotorHardware() {
         // Modificamos visualmente el label azul para que el operador sepa que puede usar la cámara
         const labelLector = document.querySelector('label[for="txt-lector"]');
         if (labelLector) {
-            labelLector.innerHTML = "📸 LECTURA QR-Serial (Presione aquí para escanear):";
+            labelLector.innerHTML = "📸 LECTURA QR-Serial (Presione aquí):";
             labelLector.style.cursor = "pointer";
             labelLector.style.textDecoration = "underline";
             labelLector.onclick = encenderCamaraBodega;
