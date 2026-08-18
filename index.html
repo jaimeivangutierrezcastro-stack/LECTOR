@@ -9,29 +9,29 @@
     <title>Registro de Bodega S</title>
     <style>
         /* Ajustes de diseño adaptables (Mobile-First) */
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background-color: #f0f2f5; }
-        .contenedor { max-width: 900px; margin: 0 auto; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 5px; background-color: #f0f2f5; }
+        .contenedor { max-width: 900px; margin: 0 auto; background: white; padding: 5px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         h2 { text-align: center; margin-top: 0; font-size: 1.4rem; color: #1a1a1a; }
         
-        .franja-botones { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 6px; }
-        .fila-botones { display: flex; flex-direction: column; gap: 5px; }
+        .franja-botones { display: flex; flex-direction: column; gap: 7px; margin-bottom: 15px; background: #f8f9fa; padding: 5px; border-radius: 6px; }
+        .fila-botones { display: flex; flex-direction: column; gap: 7px; }
         
         /* En pantallas grandes ponemos las etiquetas al lado, en celulares arriba */
         @media(min-width: 600px) {
-            .fila-botones { flex-direction: row; align-items: center; gap: 15px; }
-            .fila-botones label { width: 120px; }
+            .fila-botones { flex-direction: row; align-items: center; gap: 5px; }
+            .fila-botones label { width: 110px; }
         }
         
         .fila-botones label { font-weight: bold; font-size: 14px; color: #495057; }
         .grupo { display: flex; gap: 8px; flex-wrap: wrap; }
         
         /* Botones optimizados para dedos grandes en pantallas táctiles */
-        button.btn-opcion { padding: 12px 15px; font-size: 15px; font-weight: 500; border: 1px solid #ced4da; border-radius: 6px; background: white; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        button.btn-opcion { padding: 5px 12px; font-size: 15px; font-weight: 500; border: 1px solid #ced4da; border-radius: 6px; background: white; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         button.btn-opcion.activo { background: #0d6efd; color: white; border-color: #0d6efd; box-shadow: 0 2px 4px rgba(13,110,253,0.3); }
         
-        .franja-lector { margin-bottom: 20px; background: #e7f1ff; padding: 12px; border-radius: 6px; border: 1px solid #b6d4fe; }
+        .franja-lector { margin-bottom: 20px; background: #e7f1ff; padding: 7px; border-radius: 6px; border: 1px solid #b6d4fe; }
         .franja-lector label { display: block; font-weight: bold; margin-bottom: 6px; color: #084298; }
-        .input-qr { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #86b7fe; border-radius: 6px; box-sizing: border-box; }
+        .input-qr { width: 100%; padding: 7px; font-size: 16px; border: 2px solid #86b7fe; border-radius: 6px; box-sizing: border-box; }
         
         /* Contenedor responsivo para que la tabla no rompa el diseño en celular */
         .tabla-contenedor { overflow-x: auto; border: 1px solid #dee2e6; border-radius: 6px; margin-top: 10px; }
