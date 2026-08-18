@@ -189,7 +189,7 @@ function sincronizarMotorHardware() {
         // Modificamos visualmente el label azul para que el operador sepa que puede usar la cámara
         const labelLector = document.querySelector('label[for="txt-lector"]');
         if (labelLector) {
-            labelLector.innerHTML = "📸 LECTURA DE PRODUCTO QR (Presione aquí para escanear):";
+            labelLector.innerHTML = "📸 LECTURA QR-Serial (Presione aquí para escanear):";
             labelLector.style.cursor = "pointer";
             labelLector.style.textDecoration = "underline";
             labelLector.onclick = encenderCamaraBodega;
