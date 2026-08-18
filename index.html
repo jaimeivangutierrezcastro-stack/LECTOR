@@ -19,14 +19,14 @@
         /* En pantallas grandes ponemos las etiquetas al lado, en celulares arriba */
         @media(min-width: 600px) {
             .fila-botones { flex-direction: row; align-items: center; gap: 5px; }
-            .fila-botones label { width: 110px; }
+            .fila-botones label { width: 150px; }
         }
         
         .fila-botones label { font-weight: bold; font-size: 14px; color: #495057; }
         .grupo { display: flex; gap: 8px; flex-wrap: wrap; }
         
         /* Botones optimizados para dedos grandes en pantallas táctiles */
-        button.btn-opcion { padding: 5px 12px; font-size: 15px; font-weight: 500; border: 1px solid #ced4da; border-radius: 6px; background: white; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        button.btn-opcion { min-width: 70px; padding: 5px 20px; font-size: 17px; font-weight: 500; border: 1px solid #ced4da; border-radius: 6px; background: white; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         button.btn-opcion.activo { background: #0d6efd; color: white; border-color: #0d6efd; box-shadow: 0 2px 4px rgba(13,110,253,0.3); }
         
         .franja-lector { margin-bottom: 20px; background: #e7f1ff; padding: 7px; border-radius: 6px; border: 1px solid #b6d4fe; }
@@ -44,7 +44,7 @@
         .badge-anulado { color: #718096; font-weight: bold; text-decoration: none !important; }
         
         /* Panel inferior de utilidades */
-        .panel-inferior { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; }
+        .panel-inferior { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
         .btn-limpiar { background: #6c757d; color: white; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-size: 13px; }
         .btn-limpiar:hover { background: #5c636a; }
     </style>
