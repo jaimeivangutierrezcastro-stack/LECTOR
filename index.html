@@ -10,23 +10,23 @@
     <style>
         /* Ajustes de diseño adaptables (Mobile-First) */
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background-color: #f0f2f5; }
-        .contenedor { max-width: 900px; margin: 0 auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .contenedor { max-width: 900px; margin: 0 auto; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         h2 { text-align: center; margin-top: 0; font-size: 1.4rem; color: #1a1a1a; }
         
-        .franja-botones { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 6px; }
+        .franja-botones { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 6px; }
         .fila-botones { display: flex; flex-direction: column; gap: 5px; }
         
         /* En pantallas grandes ponemos las etiquetas al lado, en celulares arriba */
         @media(min-width: 600px) {
             .fila-botones { flex-direction: row; align-items: center; gap: 15px; }
-            .fila-botones label { width: 140px; }
+            .fila-botones label { width: 120px; }
         }
         
         .fila-botones label { font-weight: bold; font-size: 14px; color: #495057; }
         .grupo { display: flex; gap: 8px; flex-wrap: wrap; }
         
         /* Botones optimizados para dedos grandes en pantallas táctiles */
-        button.btn-opcion { padding: 12px 20px; font-size: 15px; font-weight: 500; border: 1px solid #ced4da; border-radius: 6px; background: white; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        button.btn-opcion { padding: 12px 15px; font-size: 15px; font-weight: 500; border: 1px solid #ced4da; border-radius: 6px; background: white; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         button.btn-opcion.activo { background: #0d6efd; color: white; border-color: #0d6efd; box-shadow: 0 2px 4px rgba(13,110,253,0.3); }
         
         .franja-lector { margin-bottom: 20px; background: #e7f1ff; padding: 12px; border-radius: 6px; border: 1px solid #b6d4fe; }
@@ -137,9 +137,9 @@ const URL_GOOGLE_APP = "https://script.google.com/macros/s/AKfycbxWVZSy0O18Lv8Wc
 const MINUTOS_RESTRICCION_DUPLICADO = 5;
 
 let configuracionActual = {
-    origen: 'D05',
-    estOrigen: 'R',
-    destino: 'B01'
+    origen: 'C-328',
+    estOrigen: 'E',
+    destino: 'B-01'
 };
 let historialLecturas = JSON.parse(localStorage.getItem('historial_bodega')) || [];
 
